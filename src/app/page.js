@@ -175,7 +175,10 @@ export default function Home() {
       </nav>
 
       {/* Hero Section */}
-      <section id="home" className="relative pt-24 pb-16 px-4 overflow-hidden">
+      <section
+        id="home"
+        className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden pt-16"
+      >
         {/* Background Image */}
         <div
           className="absolute inset-0 z-0"
@@ -186,25 +189,30 @@ export default function Home() {
             backgroundPosition: "center",
           }}
         >
-          <div className="absolute inset-0 bg-black/70"></div>
+          {/* Dark overlay */}
+          <div className="absolute inset-0 bg-black/75"></div>
         </div>
 
-        <div className="container mx-auto relative z-10">
-          <div className="max-w-3xl mx-auto text-center">
+        {/* Content */}
+        <div className="container mx-auto relative z-10 text-center">
+          <div className="max-w-3xl mx-auto">
             <div className="flex justify-center mb-6">
-              <div className="p-4 bg-linear-to-br from-amber-600/20 to-amber-500/20 rounded-full border border-amber-500/30">
+              <div className="p-4 bg-linear-to-br from-amber-600/20 to-amber-500/20 rounded-full border border-amber-500/30 backdrop-blur">
                 <Scissors className="h-16 w-16 text-amber-500" />
               </div>
             </div>
-            <h1 className="text-4xl md:text-6xl font-bold text-white mb-6">
+
+            <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight">
               <span className="bg-linear-to-r from-amber-500 via-amber-400 to-amber-500 bg-clip-text text-transparent">
                 FADE BARBERSHOP
               </span>
             </h1>
+
             <p className="text-xl text-zinc-300 mb-8">
               Lebih dari sekadar potong rambut. Nikmati layanan grooming premium
-              dengan sentuhan profesional.
+              dengan sentuhan profesional
             </p>
+
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/booking">
                 <Button
@@ -216,6 +224,11 @@ export default function Home() {
               </Link>
             </div>
           </div>
+        </div>
+
+        {/* Scroll Indicator */}
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-zinc-400 animate-bounce">
+          <ChevronRightIcon className="h-6 w-6 rotate-90" />
         </div>
       </section>
 
