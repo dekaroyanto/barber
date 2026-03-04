@@ -514,7 +514,7 @@ export default function Home() {
                 >
                   <Instagram className="h-5 w-5" />
                 </a>
-                <a
+                {/* <a
                   href="#"
                   className="text-zinc-400 hover:text-amber-500 transition-colors"
                 >
@@ -525,7 +525,7 @@ export default function Home() {
                   className="text-zinc-400 hover:text-amber-500 transition-colors"
                 >
                   <Twitter className="h-5 w-5" />
-                </a>
+                </a> */}
               </div>
             </div>
           </div>
