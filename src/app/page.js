@@ -1,3 +1,6 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -8,10 +11,16 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
+import { Badge } from "@/components/ui/badge";
+import {
   Scissors,
-  Calendar,
   Clock,
-  User,
   Star,
   ChevronRightIcon,
   MapPin,
@@ -20,10 +29,17 @@ import {
   Instagram,
   Facebook,
   Twitter,
+  Loader2,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
+import { getBarbers } from "@/services/home";
 
 export default function Home() {
+  const [loading, setLoading] = useState(true);
+  const [barbers, setBarbers] = useState([]);
+
+  // Data statis untuk services
   const services = [
     {
       name: "Haircut & Fade",
@@ -63,6 +79,7 @@ export default function Home() {
     },
   ];
 
+  // Data statis untuk testimonials
   const testimonials = [
     {
       name: "Budi Santoso",
@@ -87,29 +104,34 @@ export default function Home() {
     },
   ];
 
-  const barbers = [
-    {
-      name: "Alex Wijaya",
-      specialty: "Master Barber",
-      experience: "8 tahun",
-      image:
-        "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
-    },
-    {
-      name: "Ryan Pratama",
-      specialty: "Fade Specialist",
-      experience: "5 tahun",
-      image:
-        "https://images.unsplash.com/photo-1621605815971-fbc98d665033?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
-    },
-    {
-      name: "Dimas Kurniawan",
-      specialty: "Beard Expert",
-      experience: "6 tahun",
-      image:
-        "https://images.unsplash.com/photo-1534308143481-c55f00be8bd7?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
-    },
-  ];
+  useEffect(() => {
+    loadBarbers();
+  }, []);
+
+  const loadBarbers = async () => {
+    setLoading(true);
+    try {
+      // Hanya ambil data barbers dari Supabase
+      const { data, error } = await getBarbers();
+      if (error) throw error;
+      if (data) setBarbers(data);
+    } catch (error) {
+      console.error("Error loading barbers:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-zinc-900 via-stone-900 to-zinc-900 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-20 h-20 mx-auto border-4 border-amber-500/30 border-t-amber-500 rounded-full animate-spin"></div>
+          <p className="text-zinc-400 animate-pulse">Memuat data barbers...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-linear-to-b from-zinc-950 to-stone-950">
@@ -214,7 +236,7 @@ export default function Home() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/booking">
+              <Link href="/customer">
                 <Button
                   size="lg"
                   className="bg-linear-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white px-8"
@@ -232,7 +254,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Services Section */}
+      {/* Services Section - Data Statis */}
       <section id="services" className="py-20 px-4 bg-zinc-900/50">
         <div className="container mx-auto">
           <div className="text-center mb-12">
@@ -267,23 +289,13 @@ export default function Home() {
                     Durasi: {service.duration}
                   </div>
                 </CardContent>
-                <CardFooter>
-                  <Link href="/booking" className="w-full">
-                    <Button
-                      variant="outline"
-                      className="w-full border-zinc-700 text-amber-500 hover:bg-amber-500 hover:text-white"
-                    >
-                      Booking
-                    </Button>
-                  </Link>
-                </CardFooter>
               </Card>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Barbers Section */}
+      {/* Barbers Section - Data dari Supabase */}
       <section id="barbers" className="py-20 px-4">
         <div className="container mx-auto">
           <div className="text-center mb-12">
@@ -295,37 +307,94 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {barbers.map((barber, index) => (
-              <Card
-                key={index}
-                className="bg-zinc-800/50 border-zinc-700 overflow-hidden group"
-              >
-                <div className="h-64 overflow-hidden">
-                  <img
-                    src={barber.image}
-                    alt={barber.name}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                  />
-                </div>
-                <CardHeader>
-                  <CardTitle className="text-white">{barber.name}</CardTitle>
-                  <CardDescription className="text-amber-500 font-semibold">
-                    {barber.specialty}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-zinc-400">
-                    Pengalaman: {barber.experience}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          {barbers.length === 0 ? (
+            <Card className="bg-zinc-800/50 border-zinc-700">
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Scissors className="h-12 w-12 text-zinc-600 mb-4" />
+                <p className="text-zinc-400 text-center">
+                  Belum ada barber tersedia
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Carousel
+              opts={{
+                align: "start",
+                loop: true,
+              }}
+              className="w-full"
+            >
+              <CarouselContent className="-ml-2 md:-ml-4">
+                {barbers.map((barber) => (
+                  <CarouselItem
+                    key={barber.id}
+                    className="pl-2 md:pl-4 basis-full sm:basis-1/2 lg:basis-1/3"
+                  >
+                    <Card className="group bg-zinc-800/50 border-zinc-700 hover:border-amber-500/50 transition-all duration-300 cursor-pointer overflow-hidden">
+                      <div className="relative h-64 overflow-hidden">
+                        <Image
+                          src={
+                            barber.image ||
+                            "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+                          }
+                          alt={barber.name}
+                          fill
+                          className="object-cover group-hover:scale-110 transition-transform duration-500"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+                        <div className="absolute bottom-4 left-4 right-4">
+                          <div className="flex items-center justify-between">
+                            <Badge
+                              variant="secondary"
+                              className="bg-amber-500/90 text-white border-0"
+                            >
+                              <Star className="w-3 h-3 mr-1 fill-current" />
+                              {barber.rating || "5.0"}
+                            </Badge>
+                            <Badge
+                              variant="outline"
+                              className="bg-black/50 text-white border-zinc-600"
+                            >
+                              {barber.total_bookings || 0} bookings
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                      <CardHeader>
+                        <CardTitle className="text-white group-hover:text-amber-500 transition-colors">
+                          {barber.name}
+                        </CardTitle>
+                        <CardDescription className="text-zinc-400">
+                          {barber.specialty || "Master Barber"}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2 text-sm">
+                          <p className="text-zinc-400">
+                            Pengalaman: {barber.experience || 5}+ tahun
+                          </p>
+                        </div>
+                      </CardContent>
+                      <CardFooter>
+                        <Link href="/customer" className="w-full">
+                          <Button className="w-full bg-amber-500 hover:bg-amber-600 text-white">
+                            Booking Sekarang
+                            <ChevronRightIcon className="ml-2 h-4 w-4" />
+                          </Button>
+                        </Link>
+                      </CardFooter>
+                    </Card>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              <CarouselPrevious className="hidden sm:flex -left-4 bg-zinc-800 border-zinc-700 text-white hover:bg-amber-500 hover:text-white" />
+              <CarouselNext className="hidden sm:flex -right-4 bg-zinc-800 border-zinc-700 text-white hover:bg-amber-500 hover:text-white" />
+            </Carousel>
+          )}
         </div>
       </section>
 
-      {/* Testimonials Section */}
+      {/* Testimonials Section - Data Statis */}
       <section id="testimonials" className="py-20 px-4 bg-zinc-900/50">
         <div className="container mx-auto">
           <div className="text-center mb-12">
@@ -423,11 +492,11 @@ export default function Home() {
               <ul className="space-y-2 text-zinc-400 text-sm">
                 <li className="flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-amber-500" />
-                  Jl. Sudirman No. 123, Jakarta
+                  Jl. Gunung galunggung No.19, Kota Cirebon
                 </li>
                 <li className="flex items-center gap-2">
                   <Phone className="h-4 w-4 text-amber-500" />
-                  0812-3456-7890
+                  +62 821-1877-5378
                 </li>
                 <li className="flex items-center gap-2">
                   <Mail className="h-4 w-4 text-amber-500" />
@@ -440,7 +509,7 @@ export default function Home() {
               <h3 className="text-white font-semibold mb-4">Ikuti Kami</h3>
               <div className="flex space-x-4">
                 <a
-                  href="#"
+                  href="https://www.instagram.com/awal_barbershop/"
                   className="text-zinc-400 hover:text-amber-500 transition-colors"
                 >
                   <Instagram className="h-5 w-5" />

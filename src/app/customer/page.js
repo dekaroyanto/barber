@@ -83,6 +83,7 @@ import {
   Menu,
   LogOut,
   Loader2,
+  Settings,
 } from "lucide-react";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale/id";
@@ -512,14 +513,14 @@ export default function CustomerPage() {
               className="w-full justify-start gap-3 text-zinc-400 hover:text-amber-500 hover:bg-amber-500/10"
             >
               <Home className="h-5 w-5" />
-              Dashboard
+              Home
             </Button>
             <Button
               variant="ghost"
               className="w-full justify-start gap-3 text-zinc-400 hover:text-amber-500 hover:bg-amber-500/10"
             >
-              <History className="h-5 w-5" />
-              Riwayat Booking
+              <Settings className="h-5 w-5" />
+              Setting
             </Button>
           </nav>
 
