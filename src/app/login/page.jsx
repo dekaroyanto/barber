@@ -14,7 +14,16 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Scissors, Mail, Phone, Lock, Loader2, User, Zap } from "lucide-react";
+import {
+  Scissors,
+  Mail,
+  Phone,
+  Lock,
+  Loader2,
+  User,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import Swal from "sweetalert2";
 
 export default function LoginPage() {
@@ -23,6 +32,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const showErrorAlert = (message) => {
     Swal.fire({
@@ -97,18 +107,13 @@ export default function LoginPage() {
 
       const role = await getUserRole();
 
-      // Tampilkan success alert
-      await showSuccessAlert(role);
-
-      // Redirect setelah alert sukses
       if (role === "admin") {
         router.push("/admin");
       } else {
-        router.push("/dashboard");
+        router.push("/customer");
       }
     } catch (err) {
       setIsLoading(false);
-      setError("Terjadi kesalahan. Silakan coba lagi.");
       showErrorAlert("Terjadi kesalahan. Silakan coba lagi.");
     }
   };
@@ -208,18 +213,34 @@ export default function LoginPage() {
               </div>
 
               <div className="relative group">
+                {/* Icon Lock */}
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-amber-500">
                   <Lock className="h-4 w-4" />
                 </div>
+
                 <Input
                   id="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 h-12 bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-amber-600 focus:ring-amber-600/20"
+                  className="pl-10 pr-10 h-12 bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-amber-600 focus:ring-amber-600/20"
                   disabled={isLoading}
                 />
+
+                {/* Eye Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-amber-500 transition-colors"
+                  disabled={isLoading}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
               </div>
             </div>
 
