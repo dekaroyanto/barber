@@ -447,7 +447,7 @@ export default function Home() {
             Booking sekarang dan dapatkan potongan rambut terbaik dari barber
             profesional kami
           </p>
-          <Link href="/booking">
+          <Link href="/customer">
             <Button
               size="lg"
               className="bg-linear-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white px-12 py-6 text-lg"
