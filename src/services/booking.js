@@ -143,20 +143,42 @@ export const deleteBooking = async (id) => {
   }
 };
 
-// Check available slots for a barber on a specific date
+// Check if slot is available
+export const isSlotAvailable = async (barberId, dateTime) => {
+  try {
+    const { data, error } = await supabase
+      .from("bookings")
+      .select("id")
+      .eq("barber_id", barberId)
+      .eq("booking_date", dateTime)
+      .in("status", ["pending", "confirmed"]); // Booking aktif
+
+    if (error) throw error;
+    return { available: data.length === 0, error: null };
+  } catch (error) {
+    return { available: false, error };
+  }
+};
+
+// Check available slots with current time validation
 export const checkAvailableSlots = async (barberId, date) => {
   try {
-    const startOfDay = new Date(date);
+    const selectedDate = new Date(date);
+    const now = new Date();
+
+    // Set time boundaries
+    const startOfDay = new Date(selectedDate);
     startOfDay.setHours(0, 0, 0, 0);
 
-    const endOfDay = new Date(date);
+    const endOfDay = new Date(selectedDate);
     endOfDay.setHours(23, 59, 59, 999);
 
+    // Get all bookings for the day
     const { data: bookings, error } = await supabase
       .from("bookings")
       .select("booking_date")
       .eq("barber_id", barberId)
-      .eq("status", "pending")
+      .in("status", ["pending", "confirmed"])
       .gte("booking_date", startOfDay.toISOString())
       .lte("booking_date", endOfDay.toISOString());
 
@@ -164,22 +186,37 @@ export const checkAvailableSlots = async (barberId, date) => {
 
     // Generate time slots (9 AM - 8 PM)
     const allSlots = [];
+    const isToday = selectedDate.toDateString() === now.toDateString();
+
     for (let hour = 9; hour <= 20; hour++) {
       for (let minute = 0; minute < 60; minute += 30) {
+        const slotTime = new Date(selectedDate);
+        slotTime.setHours(hour, minute, 0, 0);
+
+        // Skip if time is in the past (for today only)
+        if (isToday && slotTime <= now) {
+          continue;
+        }
+
         const timeString = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
-        allSlots.push(timeString);
+        allSlots.push({
+          time: timeString,
+          datetime: slotTime.toISOString(),
+          available: true,
+        });
       }
     }
 
-    // Filter out booked slots
+    // Mark booked slots as unavailable
     const bookedSlots = bookings.map((booking) => {
       const bookingDate = new Date(booking.booking_date);
       return `${bookingDate.getHours().toString().padStart(2, "0")}:${bookingDate.getMinutes().toString().padStart(2, "0")}`;
     });
 
-    const availableSlots = allSlots.filter(
-      (slot) => !bookedSlots.includes(slot),
-    );
+    const availableSlots = allSlots.map((slot) => ({
+      ...slot,
+      available: !bookedSlots.includes(slot.time),
+    }));
 
     return { data: availableSlots, error: null };
   } catch (error) {

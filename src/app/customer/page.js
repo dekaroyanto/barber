@@ -10,8 +10,10 @@ import {
   getUserBookings,
   cancelBooking,
   checkAvailableSlots,
+  isSlotAvailable,
 } from "@/services/booking";
 import { getUserRole } from "@/services/auth";
+import { toast, Toaster } from "sonner";
 
 // Components
 import { Button } from "@/components/ui/button";
@@ -82,7 +84,7 @@ import {
   LogOut,
   Loader2,
 } from "lucide-react";
-import { format, id } from "date-fns";
+import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale/id";
 import Swal from "sweetalert2";
 import { cn } from "@/lib/utils";
@@ -170,7 +172,11 @@ export default function CustomerPage() {
         selectedBarber.id,
         date,
       );
-      if (slots) setAvailableSlots(slots);
+      if (slots) {
+        // Filter hanya slot yang available
+        const availableOnly = slots.filter((slot) => slot.available);
+        setAvailableSlots(availableOnly);
+      }
     }
   };
 
@@ -178,13 +184,11 @@ export default function CustomerPage() {
     e.preventDefault();
 
     if (!bookingForm.booking_date || !bookingForm.booking_time) {
-      Swal.fire({
-        icon: "error",
-        title: "Oops...",
-        text: "Pilih tanggal dan waktu booking",
-        background: "#1f1f1f",
-        color: "#fff",
-        confirmButtonColor: "#d97706",
+      toast.error("Pilih tanggal dan waktu booking", {
+        description: "Lengkapi semua field yang diperlukan",
+        duration: 3000,
+        position: "top-center",
+        className: "bg-red-500/20 border border-red-500/30 text-white",
       });
       return;
     }
@@ -196,11 +200,49 @@ export default function CustomerPage() {
         data: { user },
       } = await supabase.auth.getUser();
 
-      // Combine date and time
+      // Parse tanggal dan waktu
       const [hours, minutes] = bookingForm.booking_time.split(":");
       const bookingDateTime = new Date(bookingForm.booking_date);
       bookingDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
 
+      // Validasi: tidak bisa booking waktu yang sudah lewat
+      const now = new Date();
+      if (bookingDateTime <= now) {
+        toast.error("Waktu Tidak Valid", {
+          description: "Tidak bisa booking waktu yang sudah lewat",
+          duration: 3000,
+          position: "top-center",
+          className: "bg-red-500/20 border border-red-500/30 text-white",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Validasi: double-check ketersediaan slot
+      const { available, error: checkError } = await isSlotAvailable(
+        selectedBarber.id,
+        bookingDateTime.toISOString(),
+      );
+
+      if (checkError) throw checkError;
+
+      if (!available) {
+        toast.error("Slot Tidak Tersedia", {
+          description:
+            "Maaf, slot ini sudah dibooking. Silakan pilih waktu lain",
+          duration: 4000,
+          position: "top-center",
+          className: "bg-red-500/20 border border-red-500/30 text-white",
+        });
+
+        // Refresh available slots
+        await refreshAvailableSlots();
+
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Lanjutkan booking
       const bookingData = {
         user_id: user.id,
         barber_id: selectedBarber.id,
@@ -212,28 +254,58 @@ export default function CustomerPage() {
 
       if (error) throw error;
 
-      Swal.fire({
+      // TUTUP DIALOG TERLEBIH DAHULU
+      setIsBookingDialogOpen(false);
+
+      // SweetAlert untuk success booking
+      await Swal.fire({
         icon: "success",
         title: "Booking Berhasil!",
-        text: `Kode booking Anda: ${data.booking_code}`,
+        html: `
+        <div class="space-y-2">
+          <p>Kode booking Anda:</p>
+          <p class="text-2xl font-bold text-amber-500">${data.booking_code}</p>
+          <p class="text-sm text-zinc-400">Simpan kode ini untuk keperluan konfirmasi</p>
+        </div>
+      `,
         background: "#1f1f1f",
         color: "#fff",
         confirmButtonColor: "#d97706",
+        confirmButtonText: "OK",
+        backdrop: true,
+        allowOutsideClick: true,
+        allowEscapeKey: true,
+        customClass: {
+          popup: "rounded-xl border border-zinc-700",
+          confirmButton:
+            "bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 font-semibold py-2 px-4 rounded-lg",
+          htmlContainer: "text-zinc-300",
+        },
       });
 
-      setIsBookingDialogOpen(false);
       loadData(); // Reload bookings
     } catch (error) {
-      Swal.fire({
-        icon: "error",
-        title: "Gagal Booking",
-        text: error.message || "Terjadi kesalahan",
-        background: "#1f1f1f",
-        color: "#fff",
-        confirmButtonColor: "#d97706",
+      toast.error("Gagal Booking", {
+        description: error.message || "Terjadi kesalahan",
+        duration: 4000,
+        position: "top-center",
+        className: "bg-red-500/20 border border-red-500/30 text-white",
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Fungsi tambahan untuk refresh slot
+  const refreshAvailableSlots = async () => {
+    if (bookingForm.booking_date && selectedBarber) {
+      const { data: slots } = await checkAvailableSlots(
+        selectedBarber.id,
+        bookingForm.booking_date,
+      );
+      if (slots) {
+        setAvailableSlots(slots.filter((slot) => slot.available));
+      }
     }
   };
 
@@ -249,21 +321,41 @@ export default function CustomerPage() {
       cancelButtonText: "Kembali",
       background: "#1f1f1f",
       color: "#fff",
+      customClass: {
+        popup: "rounded-xl border border-zinc-700",
+        confirmButton:
+          "bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 font-semibold py-2 px-4 rounded-lg",
+        cancelButton:
+          "bg-zinc-700 hover:bg-zinc-600 text-white font-semibold py-2 px-4 rounded-lg",
+      },
     });
 
     if (result.isConfirmed) {
       const { error } = await cancelBooking(bookingId);
 
       if (!error) {
-        Swal.fire({
+        await Swal.fire({
           icon: "success",
           title: "Dibatalkan!",
           text: "Booking berhasil dibatalkan",
           background: "#1f1f1f",
           color: "#fff",
           confirmButtonColor: "#d97706",
+          confirmButtonText: "OK",
+          customClass: {
+            popup: "rounded-xl border border-zinc-700",
+            confirmButton:
+              "bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 font-semibold py-2 px-4 rounded-lg",
+          },
         });
         loadData();
+      } else {
+        toast.error("Gagal membatalkan", {
+          description: error.message || "Terjadi kesalahan",
+          duration: 3000,
+          position: "top-center",
+          className: "bg-red-500/20 border border-red-500/30 text-white",
+        });
       }
     }
   };
@@ -280,11 +372,26 @@ export default function CustomerPage() {
       cancelButtonText: "Batal",
       background: "#1f1f1f",
       color: "#fff",
+      customClass: {
+        popup: "rounded-xl border border-zinc-700",
+        confirmButton:
+          "bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 font-semibold py-2 px-4 rounded-lg",
+        cancelButton:
+          "bg-zinc-700 hover:bg-zinc-600 text-white font-semibold py-2 px-4 rounded-lg",
+      },
     });
 
     if (result.isConfirmed) {
       await supabase.auth.signOut();
-      router.push("/login");
+      toast.success("Berhasil keluar", {
+        description: "Sampai jumpa kembali!",
+        duration: 2000,
+        position: "top-center",
+        className: "bg-green-500/20 border border-green-500/30 text-white",
+      });
+      setTimeout(() => {
+        router.push("/login");
+      }, 1500);
     }
   };
 
@@ -336,6 +443,22 @@ export default function CustomerPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-zinc-900 via-stone-900 to-zinc-900 text-white">
+      {/* Toaster untuk notifikasi */}
+      <Toaster
+        position="top-center"
+        richColors
+        closeButton
+        theme="dark"
+        toastOptions={{
+          style: {
+            background: "transparent",
+            border: "none",
+            color: "#fff",
+          },
+          className: "border rounded-xl backdrop-blur-xl",
+        }}
+      />
+
       {/* Sidebar for mobile */}
       <div
         className={cn(
@@ -472,13 +595,13 @@ export default function CustomerPage() {
             <TabsList className="bg-zinc-800/50 border border-zinc-700 p-1">
               <TabsTrigger
                 value="book"
-                className="data-[state=active]:bg-amber-500 data-[state=active]:text-white"
+                className="text-zinc-300 data-[state=active]:bg-amber-500 data-[state=active]:text-white hover:text-zinc-300"
               >
                 Booking Baru
               </TabsTrigger>
               <TabsTrigger
                 value="history"
-                className="data-[state=active]:bg-amber-500 data-[state=active]:text-white"
+                className="text-zinc-300 data-[state=active]:bg-amber-500 data-[state=active]:text-white hover:text-zinc-300"
               >
                 Riwayat Booking
               </TabsTrigger>
@@ -635,7 +758,8 @@ export default function CustomerPage() {
                                         {format(
                                           new Date(booking.booking_date),
                                           "HH:mm",
-                                        )}
+                                        )}{" "}
+                                        WIB
                                       </span>
                                     </div>
                                   </div>
@@ -738,7 +862,11 @@ export default function CustomerPage() {
                     mode="single"
                     selected={bookingForm.booking_date}
                     onSelect={handleDateSelect}
-                    disabled={(date) => date < new Date()}
+                    disabled={(date) => {
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      return date < today;
+                    }}
                     initialFocus
                     className="bg-zinc-800 text-white"
                   />
@@ -759,24 +887,48 @@ export default function CustomerPage() {
                   <SelectTrigger className="border-zinc-700 bg-zinc-800/50 text-white">
                     <SelectValue placeholder="Pilih jam tersedia" />
                   </SelectTrigger>
-                  <SelectContent className="bg-zinc-800 border-zinc-700 text-white">
+                  <SelectContent className="bg-zinc-800 border-zinc-700 text-white max-h-60">
                     {availableSlots.length > 0 ? (
                       availableSlots.map((slot) => (
                         <SelectItem
-                          key={slot}
-                          value={slot}
+                          key={slot.time}
+                          value={slot.time}
                           className="hover:bg-amber-500/20 focus:bg-amber-500/20"
                         >
-                          {slot} WIB
+                          <div className="flex items-center justify-between w-full">
+                            <span>{slot.time} WIB</span>
+                            {new Date(
+                              bookingForm.booking_date,
+                            ).toDateString() === new Date().toDateString() && (
+                              <Badge
+                                variant="outline"
+                                className="ml-2 text-xs bg-amber-500/10 text-amber-500 border-amber-500/30"
+                              >
+                                Hari Ini
+                              </Badge>
+                            )}
+                          </div>
                         </SelectItem>
                       ))
                     ) : (
-                      <SelectItem value="none" disabled>
-                        Tidak ada slot tersedia
-                      </SelectItem>
+                      <div className="p-4 text-center text-zinc-500">
+                        <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p>Tidak ada slot tersedia</p>
+                        <p className="text-xs mt-1">Coba pilih tanggal lain</p>
+                      </div>
                     )}
                   </SelectContent>
                 </Select>
+
+                {/* Info tambahan */}
+                {bookingForm.booking_date &&
+                  new Date(bookingForm.booking_date).toDateString() ===
+                    new Date().toDateString() && (
+                    <p className="text-xs text-amber-500 flex items-center gap-1 mt-2">
+                      <AlertCircle className="h-3 w-3" />
+                      Slot sebelum jam sekarang tidak ditampilkan
+                    </p>
+                  )}
               </div>
             )}
 
