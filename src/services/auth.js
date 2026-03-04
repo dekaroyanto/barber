@@ -1,73 +1,101 @@
 import { supabase } from "@/lib/supabase";
 
-// STEP 5 - Register
-export const signUpUser = async ({ name, email, password, no_telp }) => {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-  });
+export async function loginUser(identifier, password) {
+  try {
+    let email = identifier;
 
-  if (error) return { error };
+    // If identifier is phone number (contains only digits)
+    if (/^\d+$/.test(identifier)) {
+      // Get email from users table based on phone number
+      const { data: userData, error: userError } = await supabase
+        .from("profiles")
+        .select("email")
+        .eq("no_telp", identifier)
+        .single();
 
-  // simpan ke tabel profiles
-  const { error: profileError } = await supabase.from("profiles").insert({
-    id: data.user.id,
-    name,
-    email,
-    no_telp,
-    role: "pelanggan",
-  });
+      if (userError || !userData) {
+        return { error: { message: "Nomor telepon tidak terdaftar" } };
+      }
 
-  if (profileError) return { error: profileError };
-
-  return { success: true };
-};
-
-// STEP 6 - Login Email atau No Telp
-export const loginUser = async (identifier, password) => {
-  let email = identifier;
-
-  // jika angka → cari dari no_telp
-  if (/^[0-9]+$/.test(identifier)) {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("email")
-      .eq("no_telp", identifier)
-      .single();
-
-    if (error || !data) {
-      return { error: { message: "Nomor tidak ditemukan" } };
+      email = userData.email;
     }
 
-    email = data.email;
+    // Login with email
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) throw error;
+    return { success: true, data };
+  } catch (error) {
+    console.error("Error logging in:", error);
+    return { error };
   }
+}
 
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+export async function getUserRole() {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  if (error) return { error };
+    if (!user) return null;
 
-  return { success: true };
-};
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
 
-// STEP 7 - Ambil Role
-export const getUserRole = async () => {
-  const { data: userData } = await supabase.auth.getUser();
+    if (error) throw error;
+    return data?.role || "pelanggan";
+  } catch (error) {
+    console.error("Error getting user role:", error);
+    return "pelanggan";
+  }
+}
 
-  if (!userData.user) return null;
+export async function logoutUser() {
+  try {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+    return { success: true };
+  } catch (error) {
+    console.error("Error logging out:", error);
+    return { error };
+  }
+}
 
-  const { data } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", userData.user.id)
-    .single();
+export async function registerUser(userData) {
+  try {
+    // Register auth user
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: userData.email,
+      password: userData.password,
+    });
 
-  return data?.role;
-};
+    if (authError) throw authError;
 
-// STEP 10 - Logout
-export const logoutUser = async () => {
-  await supabase.auth.signOut();
-};
+    if (authData.user) {
+      // Insert user data into users table
+      const { error: profileError } = await supabase.from("profiles").insert([
+        {
+          id: authData.user.id,
+          name: userData.name,
+          email: userData.email,
+          no_telp: userData.no_telp,
+          role: "pelanggan",
+          created_at: new Date().toISOString(),
+        },
+      ]);
+
+      if (profileError) throw profileError;
+    }
+
+    return { success: true, data: authData };
+  } catch (error) {
+    console.error("Error registering user:", error);
+    return { error };
+  }
+}
