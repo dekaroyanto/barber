@@ -78,7 +78,7 @@ export async function registerUser(userData) {
     if (authError) throw authError;
 
     if (authData.user) {
-      // Insert user data into users table
+      // Insert user data into profiles table
       const { error: profileError } = await supabase.from("profiles").insert([
         {
           id: authData.user.id,
@@ -97,5 +97,44 @@ export async function registerUser(userData) {
   } catch (error) {
     console.error("Error registering user:", error);
     return { error };
+  }
+}
+
+// Fungsi tambahan untuk mendapatkan profile lengkap
+export async function getUserProfile(userId) {
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .single();
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error) {
+    console.error("Error getting user profile:", error);
+    return { data: null, error };
+  }
+}
+
+// Fungsi untuk update profile
+export async function updateUserProfile(userId, profileData) {
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({
+        name: profileData.name,
+        no_telp: profileData.no_telp,
+        // email tidak diupdate karena menggunakan auth email
+      })
+      .eq("id", userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error) {
+    console.error("Error updating user profile:", error);
+    return { data: null, error };
   }
 }

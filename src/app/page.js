@@ -236,7 +236,7 @@ export default function Home() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/customer">
+              <Link href="/customer/home">
                 <Button
                   size="lg"
                   className="bg-linear-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white px-8"
@@ -339,9 +339,12 @@ export default function Home() {
                           }
                           alt={barber.name}
                           fill
-                          className="object-cover group-hover:scale-110 transition-transform duration-500"
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
+                          className="object-contain group-hover:scale-110 transition-transform duration-500"
+                          style={{ objectPosition: "center" }}
+                          priority={false}
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+                        <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent"></div>
                         <div className="absolute bottom-4 left-4 right-4">
                           <div className="flex items-center justify-between">
                             <Badge
@@ -376,7 +379,7 @@ export default function Home() {
                         </div>
                       </CardContent>
                       <CardFooter>
-                        <Link href="/customer" className="w-full">
+                        <Link href="/customer/home" className="w-full">
                           <Button className="w-full bg-amber-500 hover:bg-amber-600 text-white">
                             Booking Sekarang
                             <ChevronRightIcon className="ml-2 h-4 w-4" />
@@ -447,7 +450,7 @@ export default function Home() {
             Booking sekarang dan dapatkan potongan rambut terbaik dari barber
             profesional kami
           </p>
-          <Link href="/customer">
+          <Link href="/customer/home">
             <Button
               size="lg"
               className="bg-linear-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white px-12 py-6 text-lg"

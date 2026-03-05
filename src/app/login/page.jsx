@@ -110,7 +110,7 @@ export default function LoginPage() {
       if (role === "admin") {
         router.push("/admin");
       } else {
-        router.push("/customer");
+        router.push("/customer/home");
       }
     } catch (err) {
       setIsLoading(false);
