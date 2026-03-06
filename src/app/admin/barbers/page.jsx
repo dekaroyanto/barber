@@ -588,35 +588,52 @@ export default function BarbersPage() {
                   </p>
                 </div>
 
-                {/* Rating (readonly) */}
-                {selectedBarber && (
-                  <>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-zinc-300">
-                        Rating
-                      </label>
-                      <div className="flex items-center gap-2 p-2 bg-zinc-800/50 border border-zinc-700 rounded-md">
-                        <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
-                        <span className="text-white">
-                          {formData.rating || 0}
-                        </span>
-                      </div>
-                    </div>
+                {/* Rating - Bisa diedit */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-zinc-300">
+                    Rating
+                  </label>
+                  <div className="relative">
+                    <Star className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-500" />
+                    <Input
+                      type="number"
+                      name="rating"
+                      value={formData.rating}
+                      onChange={handleInputChange}
+                      placeholder="0.0"
+                      min="0"
+                      max="5"
+                      step="0.1"
+                      className="pl-10 bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-amber-600"
+                    />
+                  </div>
+                  <p className="text-xs text-zinc-500">
+                    Rating dari 0 - 5 (contoh: 4.5)
+                  </p>
+                </div>
 
-                    {/* Total Bookings (readonly) */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-zinc-300">
-                        Total Booking
-                      </label>
-                      <div className="flex items-center gap-2 p-2 bg-zinc-800/50 border border-zinc-700 rounded-md">
-                        <Calendar className="h-4 w-4 text-amber-500" />
-                        <span className="text-white">
-                          {formData.total_bookings || 0}
-                        </span>
-                      </div>
-                    </div>
-                  </>
-                )}
+                {/* Total Bookings - Bisa diedit */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-zinc-300">
+                    Total Booking
+                  </label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-500" />
+                    <Input
+                      type="number"
+                      name="total_bookings"
+                      value={formData.total_bookings}
+                      onChange={handleInputChange}
+                      placeholder="0"
+                      min="0"
+                      step="1"
+                      className="pl-10 bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-amber-600"
+                    />
+                  </div>
+                  <p className="text-xs text-zinc-500">
+                    Jumlah total booking yang sudah dilakukan
+                  </p>
+                </div>
               </div>
             </div>
 

@@ -9,7 +9,14 @@ import { toast } from "sonner";
 import Swal from "sweetalert2";
 
 // Icons
-import { Scissors, Home, Settings, LogOut, X } from "lucide-react";
+import {
+  Scissors,
+  Home,
+  Settings,
+  LogOut,
+  X,
+  CalendarDays,
+} from "lucide-react";
 
 export default function Sidebar({ user, isOpen, onClose }) {
   const router = useRouter();
@@ -132,7 +139,35 @@ export default function Sidebar({ user, isOpen, onClose }) {
               variant="ghost"
               className={cn(
                 "w-full justify-start gap-3",
-                isActive("/customer/settings")
+                isActive("/admin/barbers")
+                  ? "text-amber-500 bg-amber-500/10"
+                  : "text-zinc-400 hover:text-amber-500 hover:bg-amber-500/10",
+              )}
+              onClick={() => handleNavigation("/admin/barbers")}
+            >
+              <Scissors className="h-5 w-5" />
+              Barbers
+            </Button>
+
+            <Button
+              variant="ghost"
+              className={cn(
+                "w-full justify-start gap-3",
+                isActive("/admin/bookings")
+                  ? "text-amber-500 bg-amber-500/10"
+                  : "text-zinc-400 hover:text-amber-500 hover:bg-amber-500/10",
+              )}
+              onClick={() => handleNavigation("/admin/bookings")}
+            >
+              <CalendarDays className="h-5 w-5" />
+              Bookings
+            </Button>
+
+            <Button
+              variant="ghost"
+              className={cn(
+                "w-full justify-start gap-3",
+                isActive("/admin/settings")
                   ? "text-amber-500 bg-amber-500/10"
                   : "text-zinc-400 hover:text-amber-500 hover:bg-amber-500/10",
               )}
