@@ -124,10 +124,10 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-zinc-900 via-stone-900 to-zinc-900 flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-zinc-900 via-stone-900 to-zinc-900 flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="w-20 h-20 mx-auto border-4 border-amber-500/30 border-t-amber-500 rounded-full animate-spin"></div>
-          <p className="text-zinc-400 animate-pulse">Memuat data barbers...</p>
+          <p className="text-zinc-400 animate-pulse">Loading...</p>
         </div>
       </div>
     );

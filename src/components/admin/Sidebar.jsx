@@ -118,11 +118,11 @@ export default function Sidebar({ user, isOpen, onClose }) {
               variant="ghost"
               className={cn(
                 "w-full justify-start gap-3",
-                isActive("/customer/home")
+                isActive("/admin")
                   ? "text-amber-500 bg-amber-500/10"
                   : "text-zinc-400 hover:text-amber-500 hover:bg-amber-500/10",
               )}
-              onClick={() => handleNavigation("/customer/home")}
+              onClick={() => handleNavigation("/admin")}
             >
               <Home className="h-5 w-5" />
               Home
@@ -136,7 +136,7 @@ export default function Sidebar({ user, isOpen, onClose }) {
                   ? "text-amber-500 bg-amber-500/10"
                   : "text-zinc-400 hover:text-amber-500 hover:bg-amber-500/10",
               )}
-              onClick={() => handleNavigation("/customer/settings")}
+              onClick={() => handleNavigation("/admin/settings")}
             >
               <Settings className="h-5 w-5" />
               Settings
