@@ -473,7 +473,7 @@ export default function BarbersPage() {
 
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-2xl">
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-white">
               {selectedBarber ? "Edit Barber" : "Tambah Barber Baru"}
