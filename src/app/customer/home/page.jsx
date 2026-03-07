@@ -14,6 +14,13 @@ import {
 } from "@/services/booking";
 import { toast } from "sonner";
 
+import {
+  formatDateOnlyWIB,
+  formatTimeWIB,
+  nowInWIB,
+  isTodayInWIB,
+} from "@/utils/date";
+
 // Components
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -175,11 +182,18 @@ export default function CustomerHomePage() {
       // Parse tanggal dan waktu
       const [hours, minutes] = bookingForm.booking_time.split(":");
       const bookingDateTime = new Date(bookingForm.booking_date);
-      bookingDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+      bookingDateTime.setHours(
+        parseInt(hours, 10),
+        parseInt(minutes, 10),
+        0,
+        0,
+      );
 
       // Validasi: tidak bisa booking waktu yang sudah lewat
       const now = new Date();
-      if (bookingDateTime <= now) {
+
+      if (bookingDateTime.getTime() <= now.getTime()) {
         toast.error("Waktu Tidak Valid", {
           description: "Tidak bisa booking waktu yang sudah lewat",
           duration: 3000,
@@ -556,20 +570,13 @@ export default function CustomerHomePage() {
                                 <div className="flex items-center gap-2 text-zinc-300">
                                   <CalendarIcon className="h-4 w-4 text-amber-500" />
                                   <span>
-                                    {format(
-                                      new Date(booking.booking_date),
-                                      "dd MMM yyyy",
-                                    )}
+                                    {formatDateOnlyWIB(booking.booking_date)}
                                   </span>
                                 </div>
                                 <div className="flex items-center gap-2 text-zinc-300">
                                   <Clock className="h-4 w-4 text-amber-500" />
                                   <span>
-                                    {format(
-                                      new Date(booking.booking_date),
-                                      "HH:mm",
-                                    )}{" "}
-                                    WIB
+                                    {formatTimeWIB(booking.booking_date)} WIB
                                   </span>
                                 </div>
                               </div>
@@ -728,7 +735,7 @@ export default function CustomerHomePage() {
 
                 {/* Info tambahan */}
                 {bookingForm.booking_date &&
-                  new Date(bookingForm.booking_date).toDateString() ===
+                  isTodayInWIB(bookingForm.booking_date) ===
                     new Date().toDateString() && (
                     <p className="text-xs text-amber-500 flex items-center gap-1 mt-2">
                       <AlertCircle className="h-3 w-3" />

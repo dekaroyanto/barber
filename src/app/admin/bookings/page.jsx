@@ -362,11 +362,7 @@ export default function BookingsPage() {
     setBookedHours([]);
   };
 
-  // Open create dialog
-  const handleCreate = () => {
-    resetForm();
-    setIsDialogOpen(true);
-  };
+  // HAPUS: handleCreate function dihapus
 
   // Open edit dialog
   const handleEdit = (booking) => {
@@ -498,6 +494,8 @@ export default function BookingsPage() {
           });
         }
       } else {
+        // HAPUS: createBooking tidak akan pernah dipanggil karena handleCreate dihapus
+        // Namun kita tetap simpan kode ini untuk jaga-jaga
         result = await createBooking(bookingData);
         if (result) {
           toast.success("Berhasil menambahkan booking", {
@@ -711,7 +709,7 @@ export default function BookingsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header - HAPUS tombol Tambah Booking */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">Data Bookings</h1>
@@ -719,13 +717,7 @@ export default function BookingsPage() {
             Kelola daftar booking pelanggan
           </p>
         </div>
-        <Button
-          onClick={handleCreate}
-          className="bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white font-semibold shadow-lg shadow-amber-600/20"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Tambah Booking
-        </Button>
+        {/* TIDAK ADA TOMBOL TAMBAH BOOKING */}
       </div>
 
       {/* Stats Cards */}
@@ -1043,7 +1035,7 @@ export default function BookingsPage() {
                           <p className="text-sm">
                             {searchTerm || statusFilter !== "all" || dateFilter
                               ? "Coba gunakan filter lain"
-                              : "Klik tombol Tambah Booking untuk menambahkan data"}
+                              : "Tidak ada data booking yang tersedia"}
                           </p>
                         </div>
                       </div>
@@ -1056,17 +1048,15 @@ export default function BookingsPage() {
         </CardContent>
       </Card>
 
-      {/* Create/Edit Dialog */}
+      {/* Edit Dialog - HANYA UNTUK EDIT, BUKAN TAMBAH */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-white">
-              {selectedBooking ? "Edit Booking" : "Tambah Booking Baru"}
+              Edit Booking
             </DialogTitle>
             <DialogDescription className="text-zinc-400">
-              {selectedBooking
-                ? "Edit informasi booking yang sudah ada"
-                : "Isi informasi untuk menambahkan booking baru"}
+              Edit informasi booking yang sudah ada
             </DialogDescription>
           </DialogHeader>
 
@@ -1082,7 +1072,7 @@ export default function BookingsPage() {
                 onChange={handleInputChange}
                 placeholder="Otomatis dibuat"
                 className="bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-amber-600"
-                readOnly={!!selectedBooking}
+                readOnly
               />
             </div>
 
@@ -1347,10 +1337,8 @@ export default function BookingsPage() {
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Menyimpan...
                   </>
-                ) : selectedBooking ? (
-                  "Simpan Perubahan"
                 ) : (
-                  "Tambah Booking"
+                  "Simpan Perubahan"
                 )}
               </Button>
             </DialogFooter>

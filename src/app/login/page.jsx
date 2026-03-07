@@ -204,12 +204,12 @@ export default function LoginPage() {
                 >
                   Password
                 </Label>
-                <a
+                {/* <a
                   href="/lupa-password"
                   className="text-xs text-amber-500 hover:text-amber-400 hover:underline"
                 >
                   Lupa password?
-                </a>
+                </a> */}
               </div>
 
               <div className="relative group">

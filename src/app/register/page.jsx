@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-// import { signUpUser } from "@/services/auth";
+import { registerUser } from "@/services/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Swal from "sweetalert2";
@@ -24,12 +24,16 @@ import {
   Loader2,
   Eye,
   EyeOff,
+  AlertCircle,
+  CheckCircle2,
 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 export default function RegisterPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [checkingField, setCheckingField] = useState(null);
 
   const [form, setForm] = useState({
     name: "",
@@ -39,44 +43,201 @@ export default function RegisterPage() {
   });
 
   const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
 
-  const validate = () => {
-    let newErrors = {};
+  // Fungsi untuk cek email duplikat
+  const checkEmailExists = async (email) => {
+    if (!email || !/\S+@\S+\.\S+/.test(email)) return false;
 
-    if (!form.name) newErrors.name = "Nama wajib diisi";
-    if (!form.email) {
-      newErrors.email = "Email wajib diisi";
-    } else if (!/\S+@\S+\.\S+/.test(form.email)) {
-      newErrors.email = "Format email tidak valid";
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("email")
+        .eq("email", email)
+        .maybeSingle();
+
+      if (error) throw error;
+      return !!data;
+    } catch (error) {
+      console.error("Error checking email:", error);
+      return false;
     }
+  };
 
-    if (!form.no_telp) {
-      newErrors.no_telp = "Nomor telepon wajib diisi";
-    } else if (!/^\d+$/.test(form.no_telp)) {
-      newErrors.no_telp = "Nomor telepon harus angka";
+  // Fungsi untuk cek nomor telepon duplikat
+  const checkPhoneExists = async (no_telp) => {
+    if (!no_telp || !/^\d+$/.test(no_telp)) return false;
+
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("no_telp")
+        .eq("no_telp", no_telp)
+        .maybeSingle();
+
+      if (error) throw error;
+      return !!data;
+    } catch (error) {
+      console.error("Error checking phone:", error);
+      return false;
     }
+  };
 
-    if (!form.password) {
-      newErrors.password = "Password wajib diisi";
-    } else if (form.password.length < 6) {
-      newErrors.password = "Password minimal 6 karakter";
+  const validateField = async (name, value, skipDuplicateCheck = false) => {
+    switch (name) {
+      case "name":
+        if (!value) return "Nama wajib diisi";
+        if (value.length < 3) return "Nama minimal 3 karakter";
+        if (value.length > 50) return "Nama maksimal 50 karakter";
+        return "";
+
+      case "email":
+        if (!value) return "Email wajib diisi";
+        if (!/\S+@\S+\.\S+/.test(value)) return "Format email tidak valid";
+        if (value.length > 255) return "Email terlalu panjang";
+
+        // Cek duplikat email jika tidak sedang dalam mode skip
+        if (!skipDuplicateCheck && value && !errors[name]) {
+          setCheckingField(name);
+          const exists = await checkEmailExists(value);
+          setCheckingField(null);
+          if (exists) return "Email sudah terdaftar";
+        }
+        return "";
+
+      case "no_telp":
+        if (!value) return "Nomor telepon wajib diisi";
+        if (!/^\d+$/.test(value)) return "Nomor telepon harus angka";
+        if (value.length < 10) return "Nomor telepon minimal 10 angka";
+        if (value.length > 13) return "Nomor telepon maksimal 13 angka";
+
+        // Cek duplikat nomor telepon jika tidak sedang dalam mode skip
+        if (!skipDuplicateCheck && value && !errors[name]) {
+          setCheckingField(name);
+          const exists = await checkPhoneExists(value);
+          setCheckingField(null);
+          if (exists) return "Nomor telepon sudah terdaftar";
+        }
+        return "";
+
+      case "password":
+        if (!value) return "Password wajib diisi";
+        if (value.length < 6) return "Password minimal 6 karakter";
+        if (value.length > 100) return "Password maksimal 100 karakter";
+        return "";
+
+      default:
+        return "";
+    }
+  };
+
+  const handleBlur = async (field) => {
+    setTouched({ ...touched, [field]: true });
+    const error = await validateField(field, form[field], false);
+    setErrors({ ...errors, [field]: error });
+  };
+
+  const handleChange = async (field, value) => {
+    setForm({ ...form, [field]: value });
+
+    // Real-time validation if field has been touched
+    if (touched[field]) {
+      // Untuk email dan no_telp, kita lakukan validasi dengan debounce
+      if (field === "email" || field === "no_telp") {
+        // Clear existing timeout
+        if (window[`${field}Timeout`]) {
+          clearTimeout(window[`${field}Timeout`]);
+        }
+
+        // Set new timeout untuk menghindari terlalu banyak request
+        window[`${field}Timeout`] = setTimeout(async () => {
+          const error = await validateField(field, value, false);
+          setErrors((prev) => ({ ...prev, [field]: error }));
+        }, 500);
+      } else {
+        const error = await validateField(field, value, true);
+        setErrors((prev) => ({ ...prev, [field]: error }));
+      }
+    }
+  };
+
+  const validate = async () => {
+    const newErrors = {};
+    const fields = ["name", "email", "no_telp", "password"];
+
+    // Validasi semua field termasuk cek duplikat
+    for (const field of fields) {
+      const error = await validateField(field, form[field], false);
+      if (error) newErrors[field] = error;
     }
 
     setErrors(newErrors);
+    setTouched({
+      name: true,
+      email: true,
+      no_telp: true,
+      password: true,
+    });
+
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!validate()) return;
+    // Clear any pending timeouts
+    ["email", "no_telp"].forEach((field) => {
+      if (window[`${field}Timeout`]) {
+        clearTimeout(window[`${field}Timeout`]);
+      }
+    });
+
+    const isValid = await validate();
+    if (!isValid) return;
 
     setIsLoading(true);
 
-    const result = await signUpUser(form);
+    // Double check untuk memastikan tidak ada duplikasi saat submit
+    const emailExists = await checkEmailExists(form.email);
+    if (emailExists) {
+      setErrors({ ...errors, email: "Email sudah terdaftar" });
+      setIsLoading(false);
+      return;
+    }
+
+    const phoneExists = await checkPhoneExists(form.no_telp);
+    if (phoneExists) {
+      setErrors({ ...errors, no_telp: "Nomor telepon sudah terdaftar" });
+      setIsLoading(false);
+      return;
+    }
+
+    const result = await registerUser(form);
 
     if (result.error) {
-      setErrors({ general: result.error.message });
+      // Parse error message from Supabase
+      const errorMessage = result.error.message;
+
+      if (
+        errorMessage.includes("email already registered") ||
+        (errorMessage.includes(
+          "duplicate key value violates unique constraint",
+        ) &&
+          errorMessage.includes("email"))
+      ) {
+        setErrors({ ...errors, email: "Email sudah terdaftar" });
+      } else if (
+        errorMessage.includes("phone number already exists") ||
+        (errorMessage.includes(
+          "duplicate key value violates unique constraint",
+        ) &&
+          errorMessage.includes("no_telp"))
+      ) {
+        setErrors({ ...errors, no_telp: "Nomor telepon sudah terdaftar" });
+      } else {
+        setErrors({ ...errors, general: errorMessage });
+      }
+
       setIsLoading(false);
       return;
     }
@@ -99,6 +260,34 @@ export default function RegisterPage() {
 
     router.push("/login");
   };
+
+  const getInputClassName = (field) => {
+    const baseClass =
+      "pl-10 h-12 bg-zinc-800/50 border text-white placeholder:text-zinc-500";
+    const errorClass = errors[field]
+      ? "border-red-500 focus:border-red-500"
+      : "border-zinc-700 focus:border-amber-500";
+    const validClass =
+      !errors[field] && touched[field] && form[field] ? "border-green-500" : "";
+
+    return `${baseClass} ${errorClass} ${validClass}`;
+  };
+
+  const getFieldStatus = (field) => {
+    if (checkingField === field) {
+      return <span className="text-amber-500 text-xs">Memeriksa...</span>;
+    }
+    if (touched[field] && !errors[field] && form[field]) {
+      return (
+        <span className="text-green-500 text-xs flex items-center gap-1">
+          <CheckCircle2 className="h-3 w-3" />
+          Tersedia
+        </span>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
       <div
@@ -136,87 +325,131 @@ export default function RegisterPage() {
           <form onSubmit={handleSubmit} noValidate className="space-y-5">
             {/* Nama */}
             <div className="space-y-2">
-              <Label className="text-zinc-300">Nama Lengkap</Label>
+              <Label className="text-zinc-300 flex items-center gap-2">
+                Nama Lengkap
+                {touched.name && !errors.name && form.name && (
+                  <span className="text-green-500 text-xs flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Valid
+                  </span>
+                )}
+              </Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
                 <Input
                   type="text"
                   placeholder="Masukkan nama lengkap"
-                  required
-                  className={`pl-10 h-12 bg-zinc-800/50 border ${
-                    errors.name ? "border-red-500" : "border-zinc-700"
-                  } text-white placeholder:text-zinc-500`}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  value={form.name}
+                  className={getInputClassName("name")}
+                  onChange={(e) => handleChange("name", e.target.value)}
+                  onBlur={() => handleBlur("name")}
                 />
+                {errors.name && (
+                  <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-500" />
+                )}
               </div>
               {errors.name && (
-                <p className="text-red-500 text-sm">{errors.name}</p>
+                <p className="text-red-500 text-sm flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {errors.name}
+                </p>
               )}
             </div>
 
             {/* Email */}
             <div className="space-y-2">
-              <Label className="text-zinc-300">Email</Label>
+              <Label className="text-zinc-300 flex items-center gap-2">
+                Email
+                {getFieldStatus("email")}
+              </Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
                 <Input
                   type="email"
                   placeholder="email@contoh.com"
-                  required
-                  className={`pl-10 h-12 bg-zinc-800/50 border ${
-                    errors.email ? "border-red-500" : "border-zinc-700"
-                  } text-white placeholder:text-zinc-500`}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  value={form.email}
+                  className={getInputClassName("email")}
+                  onChange={(e) => handleChange("email", e.target.value)}
+                  onBlur={() => handleBlur("email")}
                 />
+                {checkingField === "email" && (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-500 animate-spin" />
+                )}
+                {errors.email && !checkingField && (
+                  <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-500" />
+                )}
               </div>
               {errors.email && (
-                <p className="text-red-500 text-sm">{errors.email}</p>
+                <p className="text-red-500 text-sm flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {errors.email}
+                </p>
               )}
             </div>
 
             {/* No Telp */}
             <div className="space-y-2">
-              <Label className="text-zinc-300">Nomor Telepon</Label>
+              <Label className="text-zinc-300 flex items-center gap-2">
+                Nomor Telepon
+                {getFieldStatus("no_telp")}
+              </Label>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
                 <Input
                   type="text"
                   placeholder="08xxxxxxxxxx"
-                  required
-                  className={`pl-10 h-12 bg-zinc-800/50 border ${
-                    errors.no_telp ? "border-red-500" : "border-zinc-700"
-                  } text-white placeholder:text-zinc-500`}
-                  onChange={(e) =>
-                    setForm({ ...form, no_telp: e.target.value })
-                  }
+                  value={form.no_telp}
+                  className={getInputClassName("no_telp")}
+                  onChange={(e) => handleChange("no_telp", e.target.value)}
+                  onBlur={() => handleBlur("no_telp")}
                 />
+                {checkingField === "no_telp" && (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-500 animate-spin" />
+                )}
+                {errors.no_telp && !checkingField && (
+                  <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-500" />
+                )}
               </div>
               {errors.no_telp && (
-                <p className="text-red-500 text-sm">{errors.no_telp}</p>
+                <p className="text-red-500 text-sm flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {errors.no_telp}
+                </p>
               )}
             </div>
 
             {/* Password */}
             <div className="space-y-2">
-              <Label className="text-zinc-300">Password</Label>
+              <Label className="text-zinc-300 flex items-center gap-2">
+                Password
+                {touched.password && !errors.password && form.password && (
+                  <span className="text-green-500 text-xs flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Valid
+                  </span>
+                )}
+              </Label>
               <div className="relative">
-                {/* Icon Lock */}
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
 
                 <Input
                   type={showPassword ? "text" : "password"}
                   placeholder="Minimal 6 karakter"
-                  required
-                  minLength={6}
-                  className={`pl-10 pr-10 h-12 bg-zinc-800/50 border ${
-                    errors.password ? "border-red-500" : "border-zinc-700"
-                  } text-white placeholder:text-zinc-500`}
-                  onChange={(e) =>
-                    setForm({ ...form, password: e.target.value })
-                  }
+                  value={form.password}
+                  className={`${getInputClassName("password")} pr-20`}
+                  onChange={(e) => handleChange("password", e.target.value)}
+                  onBlur={() => handleBlur("password")}
                 />
 
-                {/* Eye Toggle */}
+                {/* Password strength indicator */}
+                {form.password && touched.password && !errors.password && (
+                  <div className="absolute right-12 top-1/2 -translate-y-1/2 flex gap-1">
+                    {form.password.length >= 6 && (
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    )}
+                  </div>
+                )}
+
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
@@ -230,20 +463,42 @@ export default function RegisterPage() {
                 </button>
               </div>
               {errors.password && (
-                <p className="text-red-500 text-sm">{errors.password}</p>
+                <p className="text-red-500 text-sm flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {errors.password}
+                </p>
               )}
+
+              {/* Password hint */}
+              {touched.password &&
+                form.password &&
+                form.password.length < 6 && (
+                  <p className="text-amber-500 text-xs flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    Password harus minimal 6 karakter
+                  </p>
+                )}
             </div>
 
             {errors.general && (
-              <p className="text-red-500 text-sm text-center">
-                {errors.general}
-              </p>
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                <p className="text-red-500 text-sm text-center flex items-center justify-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  {errors.general}
+                </p>
+              </div>
             )}
 
             <Button
               type="submit"
-              disabled={isLoading}
-              className="w-full h-12 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 font-semibold shadow-lg"
+              disabled={
+                isLoading ||
+                checkingField !== null ||
+                Object.keys(errors).some(
+                  (key) => key !== "general" && errors[key],
+                )
+              }
+              className="w-full h-12 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <>
