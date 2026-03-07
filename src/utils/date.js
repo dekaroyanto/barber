@@ -107,3 +107,38 @@ export const getDateStringWIB = (date) => {
   const day = wibDate.getDate().toString().padStart(2, "0");
   return `${year}-${month}-${day}`;
 };
+
+export const formatRelativeWIB = (dateString) => {
+  if (!dateString) return "-";
+
+  try {
+    const wibDate = toWIB(dateString);
+    const now = nowInWIB();
+    const diffInSeconds = Math.floor((now - wibDate) / 1000);
+
+    if (diffInSeconds < 60) {
+      return `${diffInSeconds} detik yang lalu`;
+    }
+
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    if (diffInMinutes < 60) {
+      return `${diffInMinutes} menit yang lalu`;
+    }
+
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) {
+      return `${diffInHours} jam yang lalu`;
+    }
+
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 7) {
+      return `${diffInDays} hari yang lalu`;
+    }
+
+    // Jika lebih dari seminggu, tampilkan tanggal lengkap
+    return formatToWIB(dateString, "dd MMM yyyy, HH:mm");
+  } catch (error) {
+    console.error("Error formatting relative date:", error);
+    return dateString;
+  }
+};

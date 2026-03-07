@@ -13,6 +13,7 @@ import {
   isTodayInWIB,
   toUTC,
   getHourWIB,
+  formatRelativeWIB,
 } from "@/utils/date";
 import {
   getBookings,
@@ -999,14 +1000,14 @@ export default function BookingsPage() {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button
+                            {/* <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => handleEdit(booking)}
                               className="text-zinc-400 hover:text-amber-500 hover:bg-amber-500/10"
                             >
                               <Edit className="h-4 w-4" />
-                            </Button>
+                            </Button> */}
                             <Button
                               variant="ghost"
                               size="icon"
@@ -1469,42 +1470,6 @@ export default function BookingsPage() {
                 </div>
               </div>
 
-              {/* Booking Details */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-white flex items-center gap-2">
-                  <CalendarIcon className="h-4 w-4 text-amber-500" />
-                  Detail Booking
-                </h3>
-                <div className="grid grid-cols-2 gap-4 p-4 bg-zinc-800/30 rounded-lg border border-zinc-700">
-                  <div>
-                    <p className="text-xs text-zinc-500">
-                      Tanggal Booking (WIB)
-                    </p>
-                    <p className="text-sm text-white">
-                      {formatToWIB(selectedBookingDetail.booking_date)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-zinc-500">Dibuat Pada</p>
-                    <p className="text-sm text-white">
-                      {formatToWIB(selectedBookingDetail.created_at)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-zinc-500">Terakhir Diupdate</p>
-                    <p className="text-sm text-white">
-                      {formatToWIB(selectedBookingDetail.updated_at)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-zinc-500">ID Booking</p>
-                    <p className="text-sm font-mono text-zinc-400">
-                      {selectedBookingDetail.id}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
               {/* Action Buttons */}
               <div className="flex justify-end gap-2 pt-4 border-t border-zinc-700">
                 <Button
@@ -1513,16 +1478,6 @@ export default function BookingsPage() {
                   className="border-zinc-700 bg-zinc-800/50 text-white hover:bg-zinc-700/50"
                 >
                   Tutup
-                </Button>
-                <Button
-                  onClick={() => {
-                    setIsDetailDialogOpen(false);
-                    handleEdit(selectedBookingDetail);
-                  }}
-                  className="bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white"
-                >
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit Booking
                 </Button>
               </div>
             </div>

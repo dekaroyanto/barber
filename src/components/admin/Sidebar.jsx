@@ -121,7 +121,7 @@ export default function Sidebar({ user, isOpen, onClose }) {
 
           {/* Menu */}
           <nav className="space-y-2">
-            <Button
+            {/* <Button
               variant="ghost"
               className={cn(
                 "w-full justify-start gap-3",
@@ -133,6 +133,20 @@ export default function Sidebar({ user, isOpen, onClose }) {
             >
               <Home className="h-5 w-5" />
               Home
+            </Button> */}
+
+            <Button
+              variant="ghost"
+              className={cn(
+                "w-full justify-start gap-3",
+                isActive("/admin/bookings")
+                  ? "text-amber-500 bg-amber-500/10"
+                  : "text-zinc-400 hover:text-amber-500 hover:bg-amber-500/10",
+              )}
+              onClick={() => handleNavigation("/admin/bookings")}
+            >
+              <CalendarDays className="h-5 w-5" />
+              Bookings
             </Button>
 
             <Button
@@ -147,20 +161,6 @@ export default function Sidebar({ user, isOpen, onClose }) {
             >
               <Scissors className="h-5 w-5" />
               Barbers
-            </Button>
-
-            <Button
-              variant="ghost"
-              className={cn(
-                "w-full justify-start gap-3",
-                isActive("/admin/bookings")
-                  ? "text-amber-500 bg-amber-500/10"
-                  : "text-zinc-400 hover:text-amber-500 hover:bg-amber-500/10",
-              )}
-              onClick={() => handleNavigation("/admin/bookings")}
-            >
-              <CalendarDays className="h-5 w-5" />
-              Bookings
             </Button>
 
             <Button

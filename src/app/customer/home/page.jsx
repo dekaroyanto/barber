@@ -745,20 +745,6 @@ export default function CustomerHomePage() {
               </div>
             )}
 
-            {/* Notes */}
-            <div className="space-y-2">
-              <Label>Catatan (Opsional)</Label>
-              <Textarea
-                placeholder="Tambahkan catatan untuk barber (model rambut, dll)"
-                value={bookingForm.notes}
-                onChange={(e) =>
-                  setBookingForm({ ...bookingForm, notes: e.target.value })
-                }
-                className="border-zinc-700 bg-zinc-800/50 text-white placeholder:text-zinc-500"
-                rows={3}
-              />
-            </div>
-
             <DialogFooter>
               <Button
                 type="button"

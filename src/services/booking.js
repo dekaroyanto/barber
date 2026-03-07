@@ -188,7 +188,7 @@ export const checkAvailableSlots = async (barberId, date) => {
     const allSlots = [];
     const isToday = selectedDate.toDateString() === now.toDateString();
 
-    for (let hour = 9; hour <= 20; hour++) {
+    for (let hour = 9; hour <= 23; hour++) {
       for (let minute = 0; minute < 60; minute += 30) {
         const slotTime = new Date(selectedDate);
         slotTime.setHours(hour, minute, 0, 0);
