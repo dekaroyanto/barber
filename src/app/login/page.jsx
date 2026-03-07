@@ -108,7 +108,7 @@ export default function LoginPage() {
       const role = await getUserRole();
 
       if (role === "admin") {
-        router.push("/admin");
+        router.push("/admin/bookings");
       } else {
         router.push("/customer/home");
       }
