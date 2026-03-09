@@ -88,6 +88,7 @@ import {
   AlertCircle,
   Star,
   Clock,
+  X,
 } from "lucide-react";
 
 export default function BookingsPage() {
@@ -102,6 +103,12 @@ export default function BookingsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [isStatsDialogOpen, setIsStatsDialogOpen] = useState(false);
+  const [statsDialogConfig, setStatsDialogConfig] = useState({
+    title: "",
+    status: "all",
+    data: [],
+  });
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [selectedBookingDetail, setSelectedBookingDetail] = useState(null);
   const [bookedHours, setBookedHours] = useState([]);
@@ -384,10 +391,64 @@ export default function BookingsPage() {
     setIsDetailDialogOpen(true);
   };
 
+  // Handle row click
+  const handleRowClick = (booking, e) => {
+    // Cek apakah yang diklik adalah tombol aksi (select, button, atau icon)
+    const target = e.target;
+    const isActionElement =
+      target.closest("button") ||
+      target.closest("select") ||
+      target.closest('[role="combobox"]') ||
+      target.closest(".lucide-trash2") ||
+      target.closest(".lucide-eye") ||
+      target.closest("[data-radix-select-trigger]");
+
+    // Jika bukan elemen aksi, buka detail
+    if (!isActionElement) {
+      handleViewDetail(booking);
+    }
+  };
+
   // Open delete dialog
-  const handleDeleteClick = (booking) => {
+  const handleDeleteClick = (booking, e) => {
+    e.stopPropagation(); // Mencegah row click
     setSelectedBooking(booking);
     setIsDeleteDialogOpen(true);
+  };
+
+  // Handle stats card click
+  const handleStatsCardClick = (title, status) => {
+    let filteredData = [];
+
+    if (status === "all") {
+      filteredData = bookings;
+    } else {
+      filteredData = bookings.filter((booking) => booking.status === status);
+    }
+
+    // Sort by date descending
+    filteredData.sort(
+      (a, b) => new Date(b.booking_date) - new Date(a.booking_date),
+    );
+
+    setStatsDialogConfig({
+      title,
+      status,
+      data: filteredData,
+    });
+    setIsStatsDialogOpen(true);
+  };
+
+  // Handle stats row click
+  const handleStatsRowClick = (booking, e) => {
+    // Cek apakah yang diklik adalah tombol aksi
+    const target = e.target;
+    const isActionElement = target.closest("button");
+
+    if (!isActionElement) {
+      setIsStatsDialogOpen(false);
+      handleViewDetail(booking);
+    }
   };
 
   // Submit form
@@ -547,7 +608,9 @@ export default function BookingsPage() {
   };
 
   // Update status
-  const handleStatusUpdate = async (booking, newStatus) => {
+  const handleStatusUpdate = async (booking, newStatus, e) => {
+    e?.stopPropagation(); // Mencegah row click
+
     try {
       const result = await updateBooking(booking.id, {
         ...booking,
@@ -721,9 +784,12 @@ export default function BookingsPage() {
         {/* TIDAK ADA TOMBOL TAMBAH BOOKING */}
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards - Dengan klik handler */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card className="border-zinc-800 bg-zinc-900/50 backdrop-blur-xl">
+        <Card
+          className="border-zinc-800 bg-zinc-900/50 backdrop-blur-xl cursor-pointer hover:bg-zinc-800/50 transition-colors"
+          onClick={() => handleStatsCardClick("Semua Booking", "all")}
+        >
           <CardContent className="p-4">
             <p className="text-sm text-zinc-400">Total</p>
             <p className="text-2xl font-bold text-white mt-1">
@@ -731,7 +797,10 @@ export default function BookingsPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="border-zinc-800 bg-yellow-500/5 backdrop-blur-xl">
+        <Card
+          className="border-zinc-800 bg-yellow-500/5 backdrop-blur-xl cursor-pointer hover:bg-yellow-500/10 transition-colors"
+          onClick={() => handleStatsCardClick("Booking Pending", "pending")}
+        >
           <CardContent className="p-4">
             <p className="text-sm text-yellow-400">Pending</p>
             <p className="text-2xl font-bold text-yellow-500 mt-1">
@@ -739,7 +808,12 @@ export default function BookingsPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="border-zinc-800 bg-blue-500/5 backdrop-blur-xl">
+        <Card
+          className="border-zinc-800 bg-blue-500/5 backdrop-blur-xl cursor-pointer hover:bg-blue-500/10 transition-colors"
+          onClick={() =>
+            handleStatsCardClick("Booking Dikonfirmasi", "confirmed")
+          }
+        >
           <CardContent className="p-4">
             <p className="text-sm text-blue-400">Dikonfirmasi</p>
             <p className="text-2xl font-bold text-blue-500 mt-1">
@@ -747,7 +821,10 @@ export default function BookingsPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="border-zinc-800 bg-green-500/5 backdrop-blur-xl">
+        <Card
+          className="border-zinc-800 bg-green-500/5 backdrop-blur-xl cursor-pointer hover:bg-green-500/10 transition-colors"
+          onClick={() => handleStatsCardClick("Booking Selesai", "completed")}
+        >
           <CardContent className="p-4">
             <p className="text-sm text-green-400">Selesai</p>
             <p className="text-2xl font-bold text-green-500 mt-1">
@@ -755,7 +832,12 @@ export default function BookingsPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="border-zinc-800 bg-red-500/5 backdrop-blur-xl">
+        <Card
+          className="border-zinc-800 bg-red-500/5 backdrop-blur-xl cursor-pointer hover:bg-red-500/10 transition-colors"
+          onClick={() =>
+            handleStatsCardClick("Booking Dibatalkan", "cancelled")
+          }
+        >
           <CardContent className="p-4">
             <p className="text-sm text-red-400">Dibatalkan</p>
             <p className="text-2xl font-bold text-red-500 mt-1">
@@ -909,7 +991,8 @@ export default function BookingsPage() {
                     return (
                       <TableRow
                         key={booking.id}
-                        className="border-zinc-800 hover:bg-zinc-800/50"
+                        className="border-zinc-800 hover:bg-zinc-800/50 cursor-pointer transition-colors"
+                        onClick={(e) => handleRowClick(booking, e)}
                       >
                         <TableCell>
                           <span className="font-mono text-sm font-medium text-amber-500">
@@ -970,7 +1053,10 @@ export default function BookingsPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
+                          <div
+                            className="flex justify-end gap-2"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <Select
                               value={booking.status}
                               onValueChange={(value) =>
@@ -995,7 +1081,10 @@ export default function BookingsPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => handleViewDetail(booking)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleViewDetail(booking);
+                              }}
                               className="text-zinc-400 hover:text-blue-500 hover:bg-blue-500/10"
                             >
                               <Eye className="h-4 w-4" />
@@ -1003,7 +1092,10 @@ export default function BookingsPage() {
                             {/* <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => handleEdit(booking)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEdit(booking);
+                              }}
                               className="text-zinc-400 hover:text-amber-500 hover:bg-amber-500/10"
                             >
                               <Edit className="h-4 w-4" />
@@ -1011,7 +1103,7 @@ export default function BookingsPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => handleDeleteClick(booking)}
+                              onClick={(e) => handleDeleteClick(booking, e)}
                               className="text-zinc-400 hover:text-red-500 hover:bg-red-500/10"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -1048,6 +1140,175 @@ export default function BookingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Stats Dialog */}
+      <Dialog open={isStatsDialogOpen} onOpenChange={setIsStatsDialogOpen}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-white flex items-center justify-between">
+              <span>{statsDialogConfig.title}</span>
+              <Badge
+                variant="outline"
+                className={cn(
+                  "border",
+                  statsDialogConfig.status === "all" &&
+                    "bg-zinc-500/10 text-zinc-500",
+                  statsDialogConfig.status === "pending" &&
+                    "bg-yellow-500/10 text-yellow-500",
+                  statsDialogConfig.status === "confirmed" &&
+                    "bg-blue-500/10 text-blue-500",
+                  statsDialogConfig.status === "completed" &&
+                    "bg-green-500/10 text-green-500",
+                  statsDialogConfig.status === "cancelled" &&
+                    "bg-red-500/10 text-red-500",
+                )}
+              >
+                {statsDialogConfig.data.length} Data
+              </Badge>
+            </DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              Daftar booking dengan status{" "}
+              {statsDialogConfig.title.toLowerCase()}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-4">
+            {statsDialogConfig.data.length > 0 ? (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-zinc-800 hover:bg-zinc-800/50">
+                      <TableHead className="text-zinc-400">
+                        Kode Booking
+                      </TableHead>
+                      <TableHead className="text-zinc-400">Pelanggan</TableHead>
+                      <TableHead className="text-zinc-400">Barber</TableHead>
+                      <TableHead className="text-zinc-400">
+                        Tanggal (WIB)
+                      </TableHead>
+                      <TableHead className="text-zinc-400">Status</TableHead>
+                      <TableHead className="text-zinc-400 text-right">
+                        Aksi
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {statsDialogConfig.data.map((booking) => {
+                      const status = getStatusBadge(booking.status);
+                      const customer = getCustomerDetails(booking.user_id);
+                      const barber = getBarberDetails(booking.barber_id);
+
+                      return (
+                        <TableRow
+                          key={booking.id}
+                          className="border-zinc-800 hover:bg-zinc-800/50 cursor-pointer transition-colors"
+                          onClick={(e) => handleStatsRowClick(booking, e)}
+                        >
+                          <TableCell>
+                            <span className="font-mono text-sm font-medium text-amber-500">
+                              {booking.booking_code}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-6 w-6 border border-zinc-700">
+                                <AvatarImage src={customer?.avatar} />
+                                <AvatarFallback className="bg-zinc-800 text-xs">
+                                  {getInitials(
+                                    customer?.name || customer?.email,
+                                  )}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-white text-sm">
+                                {customer?.name || "Unknown"}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-6 w-6 border border-zinc-700">
+                                <AvatarImage src={barber?.image} />
+                                <AvatarFallback className="bg-zinc-800 text-xs">
+                                  {getInitials(barber?.name)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-white text-sm">
+                                {barber?.name || "Unknown"}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span className="text-white text-sm">
+                                {formatDateOnlyWIB(booking.booking_date)}
+                              </span>
+                              <span className="text-xs text-zinc-500">
+                                {formatTimeWIB(booking.booking_date)} WIB
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "border flex items-center w-fit",
+                                status.class,
+                              )}
+                            >
+                              {status.icon}
+                              {status.text}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div onClick={(e) => e.stopPropagation()}>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  setIsStatsDialogOpen(false);
+                                  handleViewDetail(booking);
+                                }}
+                                className="text-zinc-400 hover:text-blue-500 hover:bg-blue-500/10"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="text-center py-12 text-zinc-500">
+                <div className="flex flex-col items-center gap-3">
+                  <CalendarIcon className="h-12 w-12 text-zinc-600" />
+                  <div>
+                    <p className="text-lg font-medium text-white mb-1">
+                      Tidak ada data booking
+                    </p>
+                    <p className="text-sm">
+                      Tidak ada booking dengan status{" "}
+                      {statsDialogConfig.title.toLowerCase()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsStatsDialogOpen(false)}
+              className="border-zinc-700 bg-zinc-800/50 text-white hover:bg-zinc-700/50"
+            >
+              Tutup
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Dialog - HANYA UNTUK EDIT, BUKAN TAMBAH */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -1349,8 +1610,8 @@ export default function BookingsPage() {
 
       {/* Detail Dialog */}
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-        <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="sticky top-0 bg-zinc-900 pb-4 border-b border-zinc-800 z-10">
             <DialogTitle className="text-xl font-bold text-white">
               Detail Booking
             </DialogTitle>
@@ -1360,7 +1621,7 @@ export default function BookingsPage() {
           </DialogHeader>
 
           {selectedBookingDetail && (
-            <div className="space-y-6">
+            <div className="space-y-6 py-4">
               {/* Booking Code & Status */}
               <div className="flex items-center justify-between p-4 bg-zinc-800/50 rounded-lg border border-zinc-700">
                 <div>
@@ -1381,6 +1642,29 @@ export default function BookingsPage() {
                 </Badge>
               </div>
 
+              {/* Tanggal & Waktu Booking */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-white flex items-center gap-2">
+                  <CalendarIcon className="h-4 w-4 text-amber-500" />
+                  Informasi Booking
+                </h3>
+                <div className="grid grid-cols-2 gap-4 p-4 bg-zinc-800/30 rounded-lg border border-zinc-700">
+                  <div className="col-span-2">
+                    <p className="text-xs text-zinc-500 mb-1">
+                      Tanggal Booking (WIB)
+                    </p>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-white font-semibold text-s">
+                        {formatDateOnlyWIB(selectedBookingDetail.booking_date)}
+                      </span>
+                      <span className="text-sm text-amber-500 font-medium">
+                        {formatTimeWIB(selectedBookingDetail.booking_date)} WIB
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Customer Info */}
               <div className="space-y-3">
                 <h3 className="font-semibold text-white flex items-center gap-2">
@@ -1394,15 +1678,25 @@ export default function BookingsPage() {
                     );
                     return (
                       <>
-                        <div>
-                          <p className="text-xs text-zinc-500">Nama</p>
-                          <p className="text-sm text-white">
-                            {customer?.name || "-"}
-                          </p>
+                        <div className="col-span-2 flex items-center gap-3 pb-2 border-b border-zinc-700 mb-2">
+                          <Avatar className="h-10 w-10 border border-zinc-700">
+                            <AvatarImage src={customer?.avatar} />
+                            <AvatarFallback className="bg-zinc-800">
+                              {getInitials(customer?.name || customer?.email)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium text-white">
+                              {customer?.name || "Unknown"}
+                            </p>
+                            <p className="text-xs text-zinc-500">
+                              ID: {customer?.id || "-"}
+                            </p>
+                          </div>
                         </div>
                         <div>
                           <p className="text-xs text-zinc-500">Email</p>
-                          <p className="text-sm text-white">
+                          <p className="text-sm text-white break-all">
                             {customer?.email || "-"}
                           </p>
                         </div>
@@ -1418,6 +1712,14 @@ export default function BookingsPage() {
                             {customer?.role || "-"}
                           </p>
                         </div>
+                        {customer?.address && (
+                          <div className="col-span-2">
+                            <p className="text-xs text-zinc-500">Alamat</p>
+                            <p className="text-sm text-white">
+                              {customer.address}
+                            </p>
+                          </div>
+                        )}
                       </>
                     );
                   })()}
@@ -1437,11 +1739,21 @@ export default function BookingsPage() {
                     );
                     return (
                       <>
-                        <div>
-                          <p className="text-xs text-zinc-500">Nama</p>
-                          <p className="text-sm text-white">
-                            {barber?.name || "-"}
-                          </p>
+                        <div className="col-span-2 flex items-center gap-3 pb-2 border-b border-zinc-700 mb-2">
+                          <Avatar className="h-10 w-10 border border-zinc-700">
+                            <AvatarImage src={barber?.image} />
+                            <AvatarFallback className="bg-zinc-800">
+                              {getInitials(barber?.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium text-white">
+                              {barber?.name || "Unknown"}
+                            </p>
+                            <p className="text-xs text-zinc-500">
+                              ID: {barber?.id || "-"}
+                            </p>
+                          </div>
                         </div>
                         <div>
                           <p className="text-xs text-zinc-500">Spesialis</p>
@@ -1464,6 +1776,28 @@ export default function BookingsPage() {
                             {barber?.rating?.toFixed(1) || "0.0"}
                           </p>
                         </div>
+                        <div>
+                          <p className="text-xs text-zinc-500">Status</p>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "mt-1",
+                              barber?.status === "active"
+                                ? "bg-green-500/10 text-green-500 border-green-500/20"
+                                : "bg-red-500/10 text-red-500 border-red-500/20",
+                            )}
+                          >
+                            {barber?.status === "active"
+                              ? "Aktif"
+                              : "Tidak Aktif"}
+                          </Badge>
+                        </div>
+                        {barber?.bio && (
+                          <div className="col-span-2">
+                            <p className="text-xs text-zinc-500">Bio</p>
+                            <p className="text-sm text-white">{barber.bio}</p>
+                          </div>
+                        )}
                       </>
                     );
                   })()}
@@ -1471,7 +1805,7 @@ export default function BookingsPage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex justify-end gap-2 pt-4 border-t border-zinc-700">
+              <div className="sticky bottom-0 bg-zinc-900 pt-4 border-t border-zinc-800 flex justify-end gap-2">
                 <Button
                   variant="outline"
                   onClick={() => setIsDetailDialogOpen(false)}
