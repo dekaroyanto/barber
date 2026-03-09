@@ -1,7 +1,7 @@
 // app/admin/bookings/page.jsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -22,6 +22,7 @@ import {
   deleteBooking,
   checkBarberAvailability,
   getBookedHours,
+  subscribeToNewBookings,
 } from "@/services/bookings";
 import { getBarbers } from "@/services/barbers";
 import { getProfiles } from "@/services/profiles";
@@ -89,6 +90,10 @@ import {
   Star,
   Clock,
   X,
+  Bell,
+  BellRing,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 
 export default function BookingsPage() {
@@ -122,10 +127,229 @@ export default function BookingsPage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // State untuk notifikasi
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [lastBookingCount, setLastBookingCount] = useState(0);
+
+  // Refs
+  const audioRef = useRef(null);
+  const notificationSound = useRef(null);
+
+  // Inisialisasi audio
+  useEffect(() => {
+    // Buat audio context untuk notifikasi
+    if (typeof window !== "undefined") {
+      notificationSound.current = new Audio("/sounds/notification.mp3");
+      // Fallback jika file tidak ada, gunakan Web Audio API
+      notificationSound.current.onerror = () => {
+        console.log("Using Web Audio API fallback");
+      };
+    }
+
+    return () => {
+      if (notificationSound.current) {
+        notificationSound.current.pause();
+        notificationSound.current = null;
+      }
+    };
+  }, []);
+
+  // Fungsi untuk memainkan suara notifikasi
+  const playNotificationSound = useCallback(() => {
+    if (!soundEnabled) return;
+
+    try {
+      if (notificationSound.current) {
+        notificationSound.current.currentTime = 0;
+        notificationSound.current.play().catch((e) => {
+          console.log("Audio playback failed, using fallback");
+          // Fallback: gunakan Web Audio API
+          const audioContext = new (
+            window.AudioContext || window.webkitAudioContext
+          )();
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+
+          oscillator.type = "sine";
+          oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+          gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+
+          oscillator.start();
+          oscillator.stop(audioContext.currentTime + 0.3);
+        });
+      }
+    } catch (error) {
+      console.error("Error playing notification sound:", error);
+    }
+  }, [soundEnabled]);
+
+  // Fungsi untuk menampilkan notifikasi
+  const showNotification = useCallback(
+    (title, message, booking) => {
+      const newNotification = {
+        id: Date.now(),
+        title,
+        message,
+        booking,
+        timestamp: new Date(),
+        read: false,
+      };
+
+      setNotifications((prev) => [newNotification, ...prev].slice(0, 50)); // Maksimal 50 notifikasi
+      setUnreadCount((prev) => prev + 1);
+
+      // Tampilkan toast notification
+      toast.custom(
+        (t) => (
+          <div className="bg-zinc-900 border border-amber-600 rounded-lg shadow-lg p-4 max-w-md pointer-events-auto">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0">
+                <div className="w-10 h-10 rounded-full bg-amber-600/20 flex items-center justify-center">
+                  <BellRing className="h-5 w-5 text-amber-500" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <h4 className="text-white font-semibold">{title}</h4>
+                <p className="text-zinc-400 text-sm mt-1">{message}</p>
+                <p className="text-xs text-amber-500 mt-2">
+                  {formatRelativeWIB(new Date())}
+                </p>
+              </div>
+              <button
+                onClick={() => toast.dismiss(t)}
+                className="text-zinc-500 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        ),
+        {
+          duration: 10000, // 10 detik
+          position: "top-right",
+        },
+      );
+
+      // Mainkan suara
+      playNotificationSound();
+
+      // Tampilkan notifikasi browser jika diizinkan
+      if (Notification.permission === "granted") {
+        new Notification(title, {
+          body: message,
+          icon: "/favicon.ico",
+          badge: "/favicon.ico",
+          tag: "new-booking",
+          renotify: true,
+          silent: true, // Kita sudah punya suara sendiri
+        });
+      }
+    },
+    [playNotificationSound],
+  );
+
+  // Minta izin notifikasi browser
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      Notification.permission === "default"
+    ) {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  // Subscribe ke booking baru
+  useEffect(() => {
+    const unsubscribe = subscribeToNewBookings((newBooking) => {
+      // Cek apakah ini benar-benar booking baru (bukan update)
+      const isNewBooking = !bookings.some((b) => b.id === newBooking.id);
+
+      if (isNewBooking) {
+        // Update state bookings
+        setBookings((prev) => [newBooking, ...prev]);
+
+        // Dapatkan informasi customer dan barber
+        const customer = customers.find((c) => c.id === newBooking.user_id);
+        const barber = barbers.find((b) => b.id === newBooking.barber_id);
+
+        // Tampilkan notifikasi
+        showNotification(
+          "🚀 Booking Baru!",
+          `${customer?.name || "Pelanggan"} telah booking dengan ${barber?.name || "barber"} pada ${formatDateOnlyWIB(newBooking.booking_date)} ${formatTimeWIB(newBooking.booking_date)} WIB`,
+          newBooking,
+        );
+
+        // Update lastBookingCount
+        setLastBookingCount((prev) => prev + 1);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [bookings, customers, barbers, showNotification]);
+
+  // Polling untuk cek booking baru (fallback jika realtime tidak berfungsi)
+  useEffect(() => {
+    const checkNewBookings = async () => {
+      try {
+        const currentBookings = await getBookings();
+        if (currentBookings.length > lastBookingCount) {
+          const newBookingsCount = currentBookings.length - lastBookingCount;
+          if (newBookingsCount > 0) {
+            // Ambil booking terbaru
+            const latestBookings = currentBookings.slice(0, newBookingsCount);
+
+            latestBookings.forEach((newBooking) => {
+              const isNew = !bookings.some((b) => b.id === newBooking.id);
+              if (isNew) {
+                const customer = customers.find(
+                  (c) => c.id === newBooking.user_id,
+                );
+                const barber = barbers.find(
+                  (b) => b.id === newBooking.barber_id,
+                );
+
+                showNotification(
+                  "📅 Booking Baru!",
+                  `${customer?.name || "Pelanggan"} telah booking dengan ${barber?.name || "barber"} pada ${formatDateOnlyWIB(newBooking.booking_date)} ${formatTimeWIB(newBooking.booking_date)} WIB`,
+                  newBooking,
+                );
+              }
+            });
+
+            setBookings(currentBookings);
+          }
+        }
+        setLastBookingCount(currentBookings.length);
+      } catch (error) {
+        console.error("Error checking new bookings:", error);
+      }
+    };
+
+    // Cek setiap 30 detik sebagai fallback
+    const interval = setInterval(checkNewBookings, 30000);
+
+    return () => clearInterval(interval);
+  }, [lastBookingCount, bookings, customers, barbers, showNotification]);
+
   // Fetch data
   useEffect(() => {
     fetchAllData();
   }, []);
+
+  // Update lastBookingCount setelah fetch data
+  useEffect(() => {
+    if (bookings.length > 0) {
+      setLastBookingCount(bookings.length);
+    }
+  }, [bookings]);
 
   // Fetch booked hours when barber and date selected
   useEffect(() => {
@@ -157,6 +381,7 @@ export default function BookingsPage() {
       setBookings(bookingsData || []);
       setBarbers(barbersData || []);
       setCustomers(customersData || []);
+      setLastBookingCount(bookingsData?.length || 0);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error("Gagal memuat data", {
@@ -370,8 +595,6 @@ export default function BookingsPage() {
     setBookedHours([]);
   };
 
-  // HAPUS: handleCreate function dihapus
-
   // Open edit dialog
   const handleEdit = (booking) => {
     setSelectedBooking(booking);
@@ -556,14 +779,22 @@ export default function BookingsPage() {
           });
         }
       } else {
-        // HAPUS: createBooking tidak akan pernah dipanggil karena handleCreate dihapus
-        // Namun kita tetap simpan kode ini untuk jaga-jaga
         result = await createBooking(bookingData);
         if (result) {
           toast.success("Berhasil menambahkan booking", {
             description: `Booking ${result.booking_code} telah ditambahkan`,
             duration: 3000,
           });
+
+          // Notifikasi untuk booking baru yang dibuat oleh admin
+          const customer = customers.find((c) => c.id === result.user_id);
+          const barber = barbers.find((b) => b.id === result.barber_id);
+
+          showNotification(
+            "📝 Booking Ditambahkan",
+            `Admin menambahkan booking untuk ${customer?.name || "pelanggan"} dengan ${barber?.name || "barber"}`,
+            result,
+          );
         }
       }
 
@@ -633,6 +864,41 @@ export default function BookingsPage() {
         duration: 3000,
       });
     }
+  };
+
+  // Mark notification as read
+  const markAsRead = (notificationId) => {
+    setNotifications((prev) =>
+      prev.map((notif) =>
+        notif.id === notificationId ? { ...notif, read: true } : notif,
+      ),
+    );
+    setUnreadCount((prev) => Math.max(0, prev - 1));
+  };
+
+  // Mark all as read
+  const markAllAsRead = () => {
+    setNotifications((prev) => prev.map((notif) => ({ ...notif, read: true })));
+    setUnreadCount(0);
+  };
+
+  // Clear all notifications
+  const clearAllNotifications = () => {
+    setNotifications([]);
+    setUnreadCount(0);
+  };
+
+  // Toggle sound
+  const toggleSound = () => {
+    setSoundEnabled((prev) => !prev);
+    toast.success(
+      soundEnabled
+        ? "🔇 Suara notifikasi dimatikan"
+        : "🔊 Suara notifikasi dihidupkan",
+      {
+        duration: 2000,
+      },
+    );
   };
 
   // Filter bookings
@@ -773,7 +1039,7 @@ export default function BookingsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header - HAPUS tombol Tambah Booking */}
+      {/* Header dengan Notifikasi */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">Data Bookings</h1>
@@ -781,7 +1047,127 @@ export default function BookingsPage() {
             Kelola daftar booking pelanggan
           </p>
         </div>
-        {/* TIDAK ADA TOMBOL TAMBAH BOOKING */}
+
+        {/* Notifikasi Bell */}
+        <div className="flex items-center gap-2">
+          {/* Tombol Sound */}
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={toggleSound}
+            className="relative border-zinc-700 bg-zinc-800/50 text-white hover:bg-zinc-700/50"
+            title={soundEnabled ? "Matikan suara" : "Hidupkan suara"}
+          >
+            {soundEnabled ? (
+              <Volume2 className="h-4 w-4" />
+            ) : (
+              <VolumeX className="h-4 w-4" />
+            )}
+          </Button>
+
+          {/* Tombol Notifikasi */}
+          <Popover open={showNotifications} onOpenChange={setShowNotifications}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="relative border-zinc-700 bg-zinc-800/50 text-white hover:bg-zinc-700/50"
+              >
+                <Bell className="h-4 w-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-xs text-white flex items-center justify-center animate-pulse">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-80 p-0 bg-zinc-900 border-zinc-800"
+              align="end"
+            >
+              <div className="flex items-center justify-between p-3 border-b border-zinc-800">
+                <h3 className="font-semibold text-white flex items-center gap-2">
+                  <BellRing className="h-4 w-4 text-amber-500" />
+                  Notifikasi
+                </h3>
+                <div className="flex gap-1">
+                  {notifications.length > 0 && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-zinc-400 hover:text-white hover:bg-zinc-800"
+                        onClick={markAllAsRead}
+                        title="Tandai semua telah dibaca"
+                      >
+                        <CheckCircle className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-zinc-400 hover:text-white hover:bg-zinc-800"
+                        onClick={clearAllNotifications}
+                        title="Hapus semua notifikasi"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="max-h-96 overflow-y-auto">
+                {notifications.length > 0 ? (
+                  notifications.map((notif) => (
+                    <div
+                      key={notif.id}
+                      className={cn(
+                        "p-3 border-b border-zinc-800 hover:bg-zinc-800/50 cursor-pointer transition-colors",
+                        !notif.read && "bg-amber-500/5",
+                      )}
+                      onClick={() => {
+                        markAsRead(notif.id);
+                        setShowNotifications(false);
+                        handleViewDetail(notif.booking);
+                      }}
+                    >
+                      <div className="flex items-start gap-2">
+                        <div className="flex-shrink-0 mt-1">
+                          <div
+                            className={cn(
+                              "w-2 h-2 rounded-full",
+                              notif.read
+                                ? "bg-zinc-600"
+                                : "bg-amber-500 animate-pulse",
+                            )}
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-white">
+                            {notif.title}
+                          </p>
+                          <p className="text-xs text-zinc-400 mt-1 line-clamp-2">
+                            {notif.message}
+                          </p>
+                          <p className="text-xs text-zinc-500 mt-1">
+                            {formatRelativeWIB(notif.timestamp)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-8 text-center">
+                    <Bell className="h-8 w-8 text-zinc-700 mx-auto mb-3" />
+                    <p className="text-sm text-zinc-500">
+                      Tidak ada notifikasi
+                    </p>
+                  </div>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
 
       {/* Stats Cards - Dengan klik handler */}
@@ -1144,7 +1530,7 @@ export default function BookingsPage() {
       {/* Stats Dialog */}
       <Dialog open={isStatsDialogOpen} onOpenChange={setIsStatsDialogOpen}>
         <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
+          <DialogHeader className="sticky top-0 bg-zinc-900 pb-4 border-b border-zinc-800 z-10">
             <DialogTitle className="text-xl font-bold text-white flex items-center justify-between">
               <span>{statsDialogConfig.title}</span>
               <Badge
@@ -1298,7 +1684,7 @@ export default function BookingsPage() {
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="sticky bottom-0 bg-zinc-900 pt-4 border-t border-zinc-800">
             <Button
               variant="outline"
               onClick={() => setIsStatsDialogOpen(false)}
@@ -1313,7 +1699,7 @@ export default function BookingsPage() {
       {/* Edit Dialog - HANYA UNTUK EDIT, BUKAN TAMBAH */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+          <DialogHeader className="sticky top-0 bg-zinc-900 pb-4 border-b border-zinc-800 z-10">
             <DialogTitle className="text-xl font-bold text-white">
               Edit Booking
             </DialogTitle>
@@ -1322,7 +1708,7 @@ export default function BookingsPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6 py-4">
             {/* Booking Code */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-zinc-300">
@@ -1577,7 +1963,7 @@ export default function BookingsPage() {
               </Select>
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="sticky bottom-0 bg-zinc-900 pt-4 border-t border-zinc-800">
               <Button
                 type="button"
                 variant="outline"
@@ -1654,13 +2040,35 @@ export default function BookingsPage() {
                       Tanggal Booking (WIB)
                     </p>
                     <div className="flex items-baseline gap-2">
-                      <span className="text-white font-semibold text-s">
+                      <span className="text-white text-lg font-semibold">
                         {formatDateOnlyWIB(selectedBookingDetail.booking_date)}
                       </span>
                       <span className="text-sm text-amber-500 font-medium">
                         {formatTimeWIB(selectedBookingDetail.booking_date)} WIB
                       </span>
                     </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-zinc-500">Dibuat Pada</p>
+                    <p className="text-sm text-white">
+                      {selectedBookingDetail.created_at
+                        ? formatToWIB(
+                            selectedBookingDetail.created_at,
+                            "dd MMM yyyy HH:mm",
+                          ) + " WIB"
+                        : "-"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-zinc-500">Terakhir Diupdate</p>
+                    <p className="text-sm text-white">
+                      {selectedBookingDetail.updated_at
+                        ? formatToWIB(
+                            selectedBookingDetail.updated_at,
+                            "dd MMM yyyy HH:mm",
+                          ) + " WIB"
+                        : "-"}
+                    </p>
                   </div>
                 </div>
               </div>

@@ -289,3 +289,24 @@ export async function getBookedHours(barberId, date) {
     return [];
   }
 }
+
+export const subscribeToNewBookings = (callback) => {
+  const subscription = supabase
+    .channel("bookings-channel")
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "bookings",
+      },
+      (payload) => {
+        callback(payload.new);
+      },
+    )
+    .subscribe();
+
+  return () => {
+    subscription.unsubscribe();
+  };
+};
