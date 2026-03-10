@@ -333,19 +333,38 @@ export default function BookingsPage() {
         playNotificationSound();
       }
 
-      // Tampilkan notifikasi browser jika diizinkan
+      // Cek apakah Notification API tersedia (untuk browser yang mendukung)
       if (
         typeof window !== "undefined" &&
-        Notification.permission === "granted"
+        typeof Notification !== "undefined"
       ) {
-        new Notification(title, {
-          body: message,
-          icon: "/favicon.ico",
-          badge: "/favicon.ico",
-          tag: isUrgent ? "urgent-booking" : "new-booking",
-          renotify: true,
-          silent: true, // Kita sudah punya suara sendiri
-        });
+        // Minta izin hanya jika statusnya default
+        if (Notification.permission === "default") {
+          Notification.requestPermission();
+        }
+
+        // Tampilkan notifikasi browser jika diizinkan
+        if (Notification.permission === "granted") {
+          try {
+            new Notification(title, {
+              body: message,
+              icon: "/favicon.ico",
+              badge: "/favicon.ico",
+              tag: isUrgent ? "urgent-booking" : "new-booking",
+              renotify: true,
+              silent: true, // Kita sudah punya suara sendiri
+            });
+          } catch (notifError) {
+            console.log(
+              "Browser notification not supported or failed:",
+              notifError,
+            );
+            // Abaikan error - notifikasi browser bersifat opsional
+          }
+        }
+      } else {
+        // Safari iOS tidak mendukung Notification API
+        console.log("Notification API not supported in this browser");
       }
     },
     [playNotificationSound, playUrgentNotificationSound],
@@ -353,11 +372,18 @@ export default function BookingsPage() {
 
   // Minta izin notifikasi browser
   useEffect(() => {
+    // Cek apakah Notification API tersedia
     if (
       typeof window !== "undefined" &&
+      typeof Notification !== "undefined" &&
       Notification.permission === "default"
     ) {
-      Notification.requestPermission();
+      // Tunda request permission agar tidak mengganggu loading
+      const timer = setTimeout(() => {
+        Notification.requestPermission();
+      }, 3000);
+
+      return () => clearTimeout(timer);
     }
 
     // Inisialisasi AudioContext (perlu user interaction pertama)
