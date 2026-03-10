@@ -290,9 +290,17 @@ export async function getBookedHours(barberId, date) {
   }
 }
 
+// Subscribe to new bookings with improved logging
 export const subscribeToNewBookings = (callback) => {
+  console.log("🔵 Setting up subscription for new bookings...");
+
   const subscription = supabase
-    .channel("bookings-channel")
+    .channel("bookings-channel", {
+      config: {
+        broadcast: { self: true },
+        presence: { key: "" },
+      },
+    })
     .on(
       "postgres_changes",
       {
@@ -301,12 +309,31 @@ export const subscribeToNewBookings = (callback) => {
         table: "bookings",
       },
       (payload) => {
+        console.log("✅ REALTIME EVENT RECEIVED:", payload);
+        console.log("📦 New booking data:", payload.new);
         callback(payload.new);
       },
     )
-    .subscribe();
+    .on("error", (error) => {
+      console.error("❌ Realtime subscription error:", error);
+    })
+    .subscribe((status) => {
+      console.log("📡 Subscription status:", status);
+      if (status === "SUBSCRIBED") {
+        console.log("✅ Successfully subscribed to bookings channel");
+      } else if (status === "CHANNEL_ERROR") {
+        console.error(
+          "❌ Channel error - check if realtime is enabled for bookings table",
+        );
+      } else if (status === "TIMED_OUT") {
+        console.error("⏱️ Subscription timed out");
+      } else if (status === "CLOSED") {
+        console.log("🔒 Channel closed");
+      }
+    });
 
   return () => {
+    console.log("🧹 Cleaning up subscription...");
     subscription.unsubscribe();
   };
 };

@@ -135,63 +135,122 @@ export default function BookingsPage() {
   const [lastBookingCount, setLastBookingCount] = useState(0);
 
   // Refs
-  const audioRef = useRef(null);
-  const notificationSound = useRef(null);
+  const audioContextRef = useRef(null);
 
-  // Inisialisasi audio
-  useEffect(() => {
-    // Buat audio context untuk notifikasi
-    if (typeof window !== "undefined") {
-      notificationSound.current = new Audio("/sounds/notification.mp3");
-      // Fallback jika file tidak ada, gunakan Web Audio API
-      notificationSound.current.onerror = () => {
-        console.log("Using Web Audio API fallback");
-      };
-    }
-
-    return () => {
-      if (notificationSound.current) {
-        notificationSound.current.pause();
-        notificationSound.current = null;
+  // Inisialisasi Audio Context
+  const initAudioContext = useCallback(() => {
+    if (!audioContextRef.current) {
+      try {
+        audioContextRef.current = new (
+          window.AudioContext || window.webkitAudioContext
+        )();
+      } catch (error) {
+        console.error("Failed to create AudioContext:", error);
       }
-    };
+    }
+    return audioContextRef.current;
   }, []);
 
-  // Fungsi untuk memainkan suara notifikasi
+  // Fungsi untuk memainkan suara notifikasi menggunakan Web Audio API
   const playNotificationSound = useCallback(() => {
     if (!soundEnabled) return;
 
     try {
-      if (notificationSound.current) {
-        notificationSound.current.currentTime = 0;
-        notificationSound.current.play().catch((e) => {
-          console.log("Audio playback failed, using fallback");
-          // Fallback: gunakan Web Audio API
-          const audioContext = new (
-            window.AudioContext || window.webkitAudioContext
-          )();
-          const oscillator = audioContext.createOscillator();
-          const gainNode = audioContext.createGain();
+      const audioContext = initAudioContext();
 
-          oscillator.type = "sine";
-          oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-          gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+      // Resume AudioContext jika suspended (karena autoplay policy)
+      if (audioContext.state === "suspended") {
+        audioContext.resume();
+      }
 
-          oscillator.connect(gainNode);
-          gainNode.connect(audioContext.destination);
+      if (audioContext.state === "running") {
+        // Buat dua nada berbeda untuk notifikasi yang lebih menarik
+        const now = audioContext.currentTime;
 
-          oscillator.start();
-          oscillator.stop(audioContext.currentTime + 0.3);
-        });
+        // Nada pertama (frekuensi lebih tinggi)
+        const oscillator1 = audioContext.createOscillator();
+        const gainNode1 = audioContext.createGain();
+
+        oscillator1.type = "sine";
+        oscillator1.frequency.setValueAtTime(880, now); // Nada A5
+        oscillator1.frequency.setValueAtTime(622.25, now + 0.1); // Nada D#5
+
+        gainNode1.gain.setValueAtTime(0.1, now);
+        gainNode1.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+
+        oscillator1.connect(gainNode1);
+        gainNode1.connect(audioContext.destination);
+
+        oscillator1.start(now);
+        oscillator1.stop(now + 0.3);
+
+        // Nada kedua (frekuensi lebih rendah) untuk efek stereo
+        const oscillator2 = audioContext.createOscillator();
+        const gainNode2 = audioContext.createGain();
+
+        oscillator2.type = "triangle";
+        oscillator2.frequency.setValueAtTime(440, now + 0.05); // Nada A4
+        oscillator2.frequency.setValueAtTime(311.13, now + 0.15); // Nada D#4
+
+        gainNode2.gain.setValueAtTime(0.08, now + 0.05);
+        gainNode2.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+
+        oscillator2.connect(gainNode2);
+        gainNode2.connect(audioContext.destination);
+
+        oscillator2.start(now + 0.05);
+        oscillator2.stop(now + 0.35);
       }
     } catch (error) {
       console.error("Error playing notification sound:", error);
     }
-  }, [soundEnabled]);
+  }, [soundEnabled, initAudioContext]);
+
+  // Fungsi untuk memainkan suara notifikasi berulang (untuk notifikasi penting)
+  const playUrgentNotificationSound = useCallback(() => {
+    if (!soundEnabled) return;
+
+    try {
+      const audioContext = initAudioContext();
+
+      if (audioContext.state === "suspended") {
+        audioContext.resume();
+      }
+
+      if (audioContext.state === "running") {
+        const now = audioContext.currentTime;
+
+        // Buat pola notifikasi yang lebih urgent (3 nada cepat)
+        for (let i = 0; i < 3; i++) {
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+
+          oscillator.type = "sawtooth";
+          oscillator.frequency.setValueAtTime(660, now + i * 0.15); // Nada E5
+
+          gainNode.gain.setValueAtTime(0.15, now + i * 0.15);
+          gainNode.gain.exponentialRampToValueAtTime(
+            0.01,
+            now + i * 0.15 + 0.1,
+          );
+
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+
+          oscillator.start(now + i * 0.15);
+          oscillator.stop(now + i * 0.15 + 0.1);
+        }
+      }
+    } catch (error) {
+      console.error("Error playing urgent notification sound:", error);
+    }
+  }, [soundEnabled, initAudioContext]);
 
   // Fungsi untuk menampilkan notifikasi
   const showNotification = useCallback(
-    (title, message, booking) => {
+    (title, message, booking, isUrgent = false) => {
+      console.log("showNotification called:", { title, message, isUrgent });
+
       const newNotification = {
         id: Date.now(),
         title,
@@ -199,23 +258,54 @@ export default function BookingsPage() {
         booking,
         timestamp: new Date(),
         read: false,
+        urgent: isUrgent,
       };
 
-      setNotifications((prev) => [newNotification, ...prev].slice(0, 50)); // Maksimal 50 notifikasi
-      setUnreadCount((prev) => prev + 1);
+      setNotifications((prev) => {
+        console.log("Updating notifications state...");
+        return [newNotification, ...prev].slice(0, 50); // Maksimal 50 notifikasi
+      });
 
-      // Tampilkan toast notification
+      setUnreadCount((prev) => {
+        console.log("Updating unreadCount from", prev, "to", prev + 1);
+        return prev + 1;
+      });
+
+      // Tampilkan toast notification dengan desain yang lebih menarik
       toast.custom(
         (t) => (
-          <div className="bg-zinc-900 border border-amber-600 rounded-lg shadow-lg p-4 max-w-md pointer-events-auto">
+          <div
+            className={cn(
+              "border rounded-lg shadow-lg p-4 max-w-md pointer-events-auto",
+              isUrgent
+                ? "bg-red-900/90 border-red-600"
+                : "bg-zinc-900 border-amber-600",
+            )}
+          >
             <div className="flex items-start gap-3">
               <div className="flex-shrink-0">
-                <div className="w-10 h-10 rounded-full bg-amber-600/20 flex items-center justify-center">
-                  <BellRing className="h-5 w-5 text-amber-500" />
+                <div
+                  className={cn(
+                    "w-10 h-10 rounded-full flex items-center justify-center",
+                    isUrgent ? "bg-red-600/20" : "bg-amber-600/20",
+                  )}
+                >
+                  {isUrgent ? (
+                    <AlertCircle className="h-5 w-5 text-red-500" />
+                  ) : (
+                    <BellRing className="h-5 w-5 text-amber-500" />
+                  )}
                 </div>
               </div>
               <div className="flex-1">
-                <h4 className="text-white font-semibold">{title}</h4>
+                <h4
+                  className={cn(
+                    "font-semibold",
+                    isUrgent ? "text-red-400" : "text-white",
+                  )}
+                >
+                  {title}
+                </h4>
                 <p className="text-zinc-400 text-sm mt-1">{message}</p>
                 <p className="text-xs text-amber-500 mt-2">
                   {formatRelativeWIB(new Date())}
@@ -231,27 +321,34 @@ export default function BookingsPage() {
           </div>
         ),
         {
-          duration: 10000, // 10 detik
+          duration: isUrgent ? 15000 : 10000, // 15 detik untuk urgent, 10 detik untuk biasa
           position: "top-right",
         },
       );
 
-      // Mainkan suara
-      playNotificationSound();
+      // Mainkan suara (berbeda untuk urgent)
+      if (isUrgent) {
+        playUrgentNotificationSound();
+      } else {
+        playNotificationSound();
+      }
 
       // Tampilkan notifikasi browser jika diizinkan
-      if (Notification.permission === "granted") {
+      if (
+        typeof window !== "undefined" &&
+        Notification.permission === "granted"
+      ) {
         new Notification(title, {
           body: message,
           icon: "/favicon.ico",
           badge: "/favicon.ico",
-          tag: "new-booking",
+          tag: isUrgent ? "urgent-booking" : "new-booking",
           renotify: true,
           silent: true, // Kita sudah punya suara sendiri
         });
       }
     },
-    [playNotificationSound],
+    [playNotificationSound, playUrgentNotificationSound],
   );
 
   // Minta izin notifikasi browser
@@ -262,35 +359,89 @@ export default function BookingsPage() {
     ) {
       Notification.requestPermission();
     }
-  }, []);
+
+    // Inisialisasi AudioContext (perlu user interaction pertama)
+    const handleUserInteraction = () => {
+      const audioContext = initAudioContext();
+      if (audioContext && audioContext.state === "suspended") {
+        audioContext.resume();
+      }
+      // Hapus event listener setelah interaksi pertama
+      window.removeEventListener("click", handleUserInteraction);
+      window.removeEventListener("keydown", handleUserInteraction);
+    };
+
+    window.addEventListener("click", handleUserInteraction);
+    window.addEventListener("keydown", handleUserInteraction);
+
+    return () => {
+      window.removeEventListener("click", handleUserInteraction);
+      window.removeEventListener("keydown", handleUserInteraction);
+    };
+  }, [initAudioContext]);
 
   // Subscribe ke booking baru
   useEffect(() => {
+    console.log("Setting up subscription...");
+
     const unsubscribe = subscribeToNewBookings((newBooking) => {
+      console.log("New booking received:", newBooking);
+      console.log("Current bookings:", bookings);
+      console.log("Current customers:", customers);
+      console.log("Current barbers:", barbers);
+
       // Cek apakah ini benar-benar booking baru (bukan update)
       const isNewBooking = !bookings.some((b) => b.id === newBooking.id);
+      console.log("Is new booking:", isNewBooking);
 
       if (isNewBooking) {
         // Update state bookings
-        setBookings((prev) => [newBooking, ...prev]);
+        setBookings((prev) => {
+          console.log("Updating bookings state...");
+          return [newBooking, ...prev];
+        });
 
         // Dapatkan informasi customer dan barber
         const customer = customers.find((c) => c.id === newBooking.user_id);
         const barber = barbers.find((b) => b.id === newBooking.barber_id);
 
+        console.log("Found customer:", customer);
+        console.log("Found barber:", barber);
+
+        // Cek apakah ini booking urgent (misalnya booking untuk hari ini)
+        const bookingDate = new Date(newBooking.booking_date);
+        const today = new Date();
+        const isToday = bookingDate.toDateString() === today.toDateString();
+
+        console.log("Is today:", isToday);
+        console.log("Booking date:", bookingDate);
+        console.log("Today:", today);
+
         // Tampilkan notifikasi
+        const title = isToday ? "⚠️ Booking Mendesak!" : "🚀 Booking Baru!";
+        const message = `${customer?.full_name || customer?.name || "Pelanggan"} telah booking dengan ${barber?.name || "barber"} pada ${formatDateOnlyWIB(newBooking.booking_date)} ${formatTimeWIB(newBooking.booking_date)} WIB`;
+
+        console.log("Showing notification:", { title, message });
+
         showNotification(
-          "🚀 Booking Baru!",
-          `${customer?.name || "Pelanggan"} telah booking dengan ${barber?.name || "barber"} pada ${formatDateOnlyWIB(newBooking.booking_date)} ${formatTimeWIB(newBooking.booking_date)} WIB`,
+          title,
+          message,
           newBooking,
+          isToday, // Urgent jika booking untuk hari ini
         );
 
         // Update lastBookingCount
-        setLastBookingCount((prev) => prev + 1);
+        setLastBookingCount((prev) => {
+          console.log("Updating lastBookingCount from", prev, "to", prev + 1);
+          return prev + 1;
+        });
+      } else {
+        console.log("Booking already exists, skipping notification");
       }
     });
 
     return () => {
+      console.log("Cleaning up subscription...");
       unsubscribe();
     };
   }, [bookings, customers, barbers, showNotification]);
@@ -316,10 +467,16 @@ export default function BookingsPage() {
                   (b) => b.id === newBooking.barber_id,
                 );
 
+                const bookingDate = new Date(newBooking.booking_date);
+                const today = new Date();
+                const isToday =
+                  bookingDate.toDateString() === today.toDateString();
+
                 showNotification(
-                  "📅 Booking Baru!",
-                  `${customer?.name || "Pelanggan"} telah booking dengan ${barber?.name || "barber"} pada ${formatDateOnlyWIB(newBooking.booking_date)} ${formatTimeWIB(newBooking.booking_date)} WIB`,
+                  isToday ? "⚠️ Booking Mendesak!" : "📅 Booking Baru!",
+                  `${customer?.full_name || customer?.name || "Pelanggan"} telah booking dengan ${barber?.name || "barber"} pada ${formatDateOnlyWIB(newBooking.booking_date)} ${formatTimeWIB(newBooking.booking_date)} WIB`,
                   newBooking,
+                  isToday,
                 );
               }
             });
@@ -790,10 +947,15 @@ export default function BookingsPage() {
           const customer = customers.find((c) => c.id === result.user_id);
           const barber = barbers.find((b) => b.id === result.barber_id);
 
+          const bookingDate = new Date(result.booking_date);
+          const today = new Date();
+          const isToday = bookingDate.toDateString() === today.toDateString();
+
           showNotification(
-            "📝 Booking Ditambahkan",
-            `Admin menambahkan booking untuk ${customer?.name || "pelanggan"} dengan ${barber?.name || "barber"}`,
+            isToday ? "⚠️ Booking Mendesak (Admin)" : "📝 Booking Ditambahkan",
+            `Admin menambahkan booking untuk ${customer?.full_name || customer?.name || "pelanggan"} dengan ${barber?.name || "barber"}`,
             result,
+            isToday,
           );
         }
       }
@@ -856,6 +1018,30 @@ export default function BookingsPage() {
           },
         );
         fetchAllData();
+
+        // Notifikasi untuk perubahan status (opsional)
+        if (newStatus === "confirmed") {
+          showNotification(
+            "✅ Booking Dikonfirmasi",
+            `Booking ${booking.booking_code} telah dikonfirmasi`,
+            booking,
+            false,
+          );
+        } else if (newStatus === "completed") {
+          showNotification(
+            "🎉 Booking Selesai",
+            `Booking ${booking.booking_code} telah selesai`,
+            booking,
+            false,
+          );
+        } else if (newStatus === "cancelled") {
+          showNotification(
+            "❌ Booking Dibatalkan",
+            `Booking ${booking.booking_code} telah dibatalkan`,
+            booking,
+            false,
+          );
+        }
       }
     } catch (error) {
       console.error("Error updating status:", error);
@@ -891,6 +1077,14 @@ export default function BookingsPage() {
   // Toggle sound
   const toggleSound = () => {
     setSoundEnabled((prev) => !prev);
+
+    // Test sound jika dihidupkan
+    if (!soundEnabled) {
+      setTimeout(() => {
+        playNotificationSound();
+      }, 100);
+    }
+
     toast.success(
       soundEnabled
         ? "🔇 Suara notifikasi dimatikan"
@@ -942,7 +1136,9 @@ export default function BookingsPage() {
   // Get customer name by ID
   const getCustomerName = (userId) => {
     const customer = customers.find((c) => c.id === userId);
-    return customer?.name || customer?.email || "Unknown";
+    return (
+      customer?.full_name || customer?.name || customer?.email || "Unknown"
+    );
   };
 
   // Get barber name by ID
@@ -1055,7 +1251,10 @@ export default function BookingsPage() {
             variant="outline"
             size="icon"
             onClick={toggleSound}
-            className="relative border-zinc-700 bg-zinc-800/50 text-white hover:bg-zinc-700/50"
+            className={cn(
+              "relative border-zinc-700 bg-zinc-800/50 hover:bg-zinc-700/50",
+              soundEnabled ? "text-white" : "text-zinc-500",
+            )}
             title={soundEnabled ? "Matikan suara" : "Hidupkan suara"}
           >
             {soundEnabled ? (
@@ -1089,6 +1288,14 @@ export default function BookingsPage() {
                 <h3 className="font-semibold text-white flex items-center gap-2">
                   <BellRing className="h-4 w-4 text-amber-500" />
                   Notifikasi
+                  {unreadCount > 0 && (
+                    <Badge
+                      variant="outline"
+                      className="bg-red-500/10 text-red-500 border-red-500/20 text-xs"
+                    >
+                      {unreadCount} baru
+                    </Badge>
+                  )}
                 </h3>
                 <div className="flex gap-1">
                   {notifications.length > 0 && (
@@ -1123,7 +1330,8 @@ export default function BookingsPage() {
                       key={notif.id}
                       className={cn(
                         "p-3 border-b border-zinc-800 hover:bg-zinc-800/50 cursor-pointer transition-colors",
-                        !notif.read && "bg-amber-500/5",
+                        !notif.read && notif.urgent && "bg-red-500/10",
+                        !notif.read && !notif.urgent && "bg-amber-500/5",
                       )}
                       onClick={() => {
                         markAsRead(notif.id);
@@ -1138,12 +1346,19 @@ export default function BookingsPage() {
                               "w-2 h-2 rounded-full",
                               notif.read
                                 ? "bg-zinc-600"
-                                : "bg-amber-500 animate-pulse",
+                                : notif.urgent
+                                  ? "bg-red-500 animate-pulse"
+                                  : "bg-amber-500 animate-pulse",
                             )}
                           />
                         </div>
                         <div className="flex-1">
-                          <p className="text-sm font-medium text-white">
+                          <p
+                            className={cn(
+                              "text-sm font-medium",
+                              notif.urgent ? "text-red-400" : "text-white",
+                            )}
+                          >
                             {notif.title}
                           </p>
                           <p className="text-xs text-zinc-400 mt-1 line-clamp-2">
@@ -1153,6 +1368,14 @@ export default function BookingsPage() {
                             {formatRelativeWIB(notif.timestamp)}
                           </p>
                         </div>
+                        {notif.urgent && (
+                          <Badge
+                            variant="outline"
+                            className="bg-red-500/10 text-red-500 border-red-500/20 text-[10px] px-1"
+                          >
+                            Mendesak
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   ))
@@ -1390,12 +1613,18 @@ export default function BookingsPage() {
                             <Avatar className="h-8 w-8 border border-zinc-700">
                               <AvatarImage src={customer?.avatar} />
                               <AvatarFallback className="bg-zinc-800 text-xs">
-                                {getInitials(customer?.name || customer?.email)}
+                                {getInitials(
+                                  customer?.full_name ||
+                                    customer?.name ||
+                                    customer?.email,
+                                )}
                               </AvatarFallback>
                             </Avatar>
                             <div>
                               <p className="font-medium text-white text-sm">
-                                {customer?.name || "Unknown"}
+                                {customer?.full_name ||
+                                  customer?.name ||
+                                  "Unknown"}
                               </p>
                               <p className="text-xs text-zinc-500">
                                 {customer?.email || ""}
@@ -1601,12 +1830,16 @@ export default function BookingsPage() {
                                 <AvatarImage src={customer?.avatar} />
                                 <AvatarFallback className="bg-zinc-800 text-xs">
                                   {getInitials(
-                                    customer?.name || customer?.email,
+                                    customer?.full_name ||
+                                      customer?.name ||
+                                      customer?.email,
                                   )}
                                 </AvatarFallback>
                               </Avatar>
                               <span className="text-white text-sm">
-                                {customer?.name || "Unknown"}
+                                {customer?.full_name ||
+                                  customer?.name ||
+                                  "Unknown"}
                               </span>
                             </div>
                           </TableCell>
@@ -1739,7 +1972,7 @@ export default function BookingsPage() {
                 <SelectContent className="bg-zinc-800 border-zinc-700 text-white max-h-60">
                   {customers.map((customer) => (
                     <SelectItem key={customer.id} value={customer.id}>
-                      {customer.name || customer.email}{" "}
+                      {customer.full_name || customer.name || customer.email}{" "}
                       {customer.role === "admin" ? "(Admin)" : ""}
                     </SelectItem>
                   ))}
@@ -2090,12 +2323,18 @@ export default function BookingsPage() {
                           <Avatar className="h-10 w-10 border border-zinc-700">
                             <AvatarImage src={customer?.avatar} />
                             <AvatarFallback className="bg-zinc-800">
-                              {getInitials(customer?.name || customer?.email)}
+                              {getInitials(
+                                customer?.full_name ||
+                                  customer?.name ||
+                                  customer?.email,
+                              )}
                             </AvatarFallback>
                           </Avatar>
                           <div>
                             <p className="font-medium text-white">
-                              {customer?.name || "Unknown"}
+                              {customer?.full_name ||
+                                customer?.name ||
+                                "Unknown"}
                             </p>
                             <p className="text-xs text-zinc-500">
                               ID: {customer?.id || "-"}
