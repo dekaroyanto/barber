@@ -2111,28 +2111,6 @@ export default function BookingsPage() {
                       </span>
                     </div>
                   </div>
-                  <div>
-                    <p className="text-xs text-zinc-500">Dibuat Pada</p>
-                    <p className="text-sm text-white">
-                      {selectedBookingDetail.created_at
-                        ? formatToWIB(
-                            selectedBookingDetail.created_at,
-                            "dd MMM yyyy HH:mm",
-                          ) + " WIB"
-                        : "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-zinc-500">Terakhir Diupdate</p>
-                    <p className="text-sm text-white">
-                      {selectedBookingDetail.updated_at
-                        ? formatToWIB(
-                            selectedBookingDetail.updated_at,
-                            "dd MMM yyyy HH:mm",
-                          ) + " WIB"
-                        : "-"}
-                    </p>
-                  </div>
                 </div>
               </div>
 
