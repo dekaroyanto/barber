@@ -92,8 +92,6 @@ import {
   X,
   Bell,
   BellRing,
-  Volume2,
-  VolumeX,
 } from "lucide-react";
 
 export default function BookingsPage() {
@@ -131,122 +129,15 @@ export default function BookingsPage() {
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [soundEnabled, setSoundEnabled] = useState(true);
   const [lastBookingCount, setLastBookingCount] = useState(0);
+  const [isBrowser, setIsBrowser] = useState(false);
 
-  // Refs
-  const audioContextRef = useRef(null);
-
-  // Inisialisasi Audio Context
-  const initAudioContext = useCallback(() => {
-    if (!audioContextRef.current) {
-      try {
-        audioContextRef.current = new (
-          window.AudioContext || window.webkitAudioContext
-        )();
-      } catch (error) {
-        console.error("Failed to create AudioContext:", error);
-      }
-    }
-    return audioContextRef.current;
+  // Set isBrowser to true when component mounts (client-side only)
+  useEffect(() => {
+    setIsBrowser(true);
   }, []);
 
-  // Fungsi untuk memainkan suara notifikasi menggunakan Web Audio API
-  const playNotificationSound = useCallback(() => {
-    if (!soundEnabled) return;
-
-    try {
-      const audioContext = initAudioContext();
-
-      // Resume AudioContext jika suspended (karena autoplay policy)
-      if (audioContext.state === "suspended") {
-        audioContext.resume();
-      }
-
-      if (audioContext.state === "running") {
-        // Buat dua nada berbeda untuk notifikasi yang lebih menarik
-        const now = audioContext.currentTime;
-
-        // Nada pertama (frekuensi lebih tinggi)
-        const oscillator1 = audioContext.createOscillator();
-        const gainNode1 = audioContext.createGain();
-
-        oscillator1.type = "sine";
-        oscillator1.frequency.setValueAtTime(880, now); // Nada A5
-        oscillator1.frequency.setValueAtTime(622.25, now + 0.1); // Nada D#5
-
-        gainNode1.gain.setValueAtTime(0.1, now);
-        gainNode1.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-
-        oscillator1.connect(gainNode1);
-        gainNode1.connect(audioContext.destination);
-
-        oscillator1.start(now);
-        oscillator1.stop(now + 0.3);
-
-        // Nada kedua (frekuensi lebih rendah) untuk efek stereo
-        const oscillator2 = audioContext.createOscillator();
-        const gainNode2 = audioContext.createGain();
-
-        oscillator2.type = "triangle";
-        oscillator2.frequency.setValueAtTime(440, now + 0.05); // Nada A4
-        oscillator2.frequency.setValueAtTime(311.13, now + 0.15); // Nada D#4
-
-        gainNode2.gain.setValueAtTime(0.08, now + 0.05);
-        gainNode2.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
-
-        oscillator2.connect(gainNode2);
-        gainNode2.connect(audioContext.destination);
-
-        oscillator2.start(now + 0.05);
-        oscillator2.stop(now + 0.35);
-      }
-    } catch (error) {
-      console.error("Error playing notification sound:", error);
-    }
-  }, [soundEnabled, initAudioContext]);
-
-  // Fungsi untuk memainkan suara notifikasi berulang (untuk notifikasi penting)
-  const playUrgentNotificationSound = useCallback(() => {
-    if (!soundEnabled) return;
-
-    try {
-      const audioContext = initAudioContext();
-
-      if (audioContext.state === "suspended") {
-        audioContext.resume();
-      }
-
-      if (audioContext.state === "running") {
-        const now = audioContext.currentTime;
-
-        // Buat pola notifikasi yang lebih urgent (3 nada cepat)
-        for (let i = 0; i < 3; i++) {
-          const oscillator = audioContext.createOscillator();
-          const gainNode = audioContext.createGain();
-
-          oscillator.type = "sawtooth";
-          oscillator.frequency.setValueAtTime(660, now + i * 0.15); // Nada E5
-
-          gainNode.gain.setValueAtTime(0.15, now + i * 0.15);
-          gainNode.gain.exponentialRampToValueAtTime(
-            0.01,
-            now + i * 0.15 + 0.1,
-          );
-
-          oscillator.connect(gainNode);
-          gainNode.connect(audioContext.destination);
-
-          oscillator.start(now + i * 0.15);
-          oscillator.stop(now + i * 0.15 + 0.1);
-        }
-      }
-    } catch (error) {
-      console.error("Error playing urgent notification sound:", error);
-    }
-  }, [soundEnabled, initAudioContext]);
-
-  // Fungsi untuk menampilkan notifikasi
+  // Fungsi untuk menampilkan notifikasi (tanpa suara)
   const showNotification = useCallback(
     (title, message, booking, isUrgent = false) => {
       console.log("showNotification called:", { title, message, isUrgent });
@@ -262,14 +153,10 @@ export default function BookingsPage() {
       };
 
       setNotifications((prev) => {
-        console.log("Updating notifications state...");
         return [newNotification, ...prev].slice(0, 50); // Maksimal 50 notifikasi
       });
 
-      setUnreadCount((prev) => {
-        console.log("Updating unreadCount from", prev, "to", prev + 1);
-        return prev + 1;
-      });
+      setUnreadCount((prev) => prev + 1);
 
       // Tampilkan toast notification dengan desain yang lebih menarik
       toast.custom(
@@ -326,59 +213,41 @@ export default function BookingsPage() {
         },
       );
 
-      // Mainkan suara (berbeda untuk urgent)
-      if (isUrgent) {
-        playUrgentNotificationSound();
-      } else {
-        playNotificationSound();
-      }
-
-      // Tampilkan notifikasi browser jika diizinkan
+      // Tampilkan notifikasi browser jika diizinkan (hanya di client-side)
       if (
+        isBrowser &&
         typeof window !== "undefined" &&
+        "Notification" in window &&
         Notification.permission === "granted"
       ) {
-        new Notification(title, {
-          body: message,
-          icon: "/favicon.ico",
-          badge: "/favicon.ico",
-          tag: isUrgent ? "urgent-booking" : "new-booking",
-          renotify: true,
-          silent: true, // Kita sudah punya suara sendiri
-        });
+        try {
+          new Notification(title, {
+            body: message,
+            icon: "/favicon.ico",
+            badge: "/favicon.ico",
+            tag: isUrgent ? "urgent-booking" : "new-booking",
+            renotify: true,
+            silent: true, // Silent karena kita tidak pakai suara
+          });
+        } catch (error) {
+          console.error("Error showing browser notification:", error);
+        }
       }
     },
-    [playNotificationSound, playUrgentNotificationSound],
+    [isBrowser],
   );
 
-  // Minta izin notifikasi browser
+  // Minta izin notifikasi browser (hanya di client-side)
   useEffect(() => {
     if (
+      isBrowser &&
       typeof window !== "undefined" &&
+      "Notification" in window &&
       Notification.permission === "default"
     ) {
       Notification.requestPermission();
     }
-
-    // Inisialisasi AudioContext (perlu user interaction pertama)
-    const handleUserInteraction = () => {
-      const audioContext = initAudioContext();
-      if (audioContext && audioContext.state === "suspended") {
-        audioContext.resume();
-      }
-      // Hapus event listener setelah interaksi pertama
-      window.removeEventListener("click", handleUserInteraction);
-      window.removeEventListener("keydown", handleUserInteraction);
-    };
-
-    window.addEventListener("click", handleUserInteraction);
-    window.addEventListener("keydown", handleUserInteraction);
-
-    return () => {
-      window.removeEventListener("click", handleUserInteraction);
-      window.removeEventListener("keydown", handleUserInteraction);
-    };
-  }, [initAudioContext]);
+  }, [isBrowser]);
 
   // Subscribe ke booking baru
   useEffect(() => {
@@ -386,9 +255,6 @@ export default function BookingsPage() {
 
     const unsubscribe = subscribeToNewBookings((newBooking) => {
       console.log("New booking received:", newBooking);
-      console.log("Current bookings:", bookings);
-      console.log("Current customers:", customers);
-      console.log("Current barbers:", barbers);
 
       // Cek apakah ini benar-benar booking baru (bukan update)
       const isNewBooking = !bookings.some((b) => b.id === newBooking.id);
@@ -397,7 +263,6 @@ export default function BookingsPage() {
       if (isNewBooking) {
         // Update state bookings
         setBookings((prev) => {
-          console.log("Updating bookings state...");
           return [newBooking, ...prev];
         });
 
@@ -414,8 +279,6 @@ export default function BookingsPage() {
         const isToday = bookingDate.toDateString() === today.toDateString();
 
         console.log("Is today:", isToday);
-        console.log("Booking date:", bookingDate);
-        console.log("Today:", today);
 
         // Tampilkan notifikasi
         const title = isToday ? "⚠️ Booking Mendesak!" : "🚀 Booking Baru!";
@@ -431,10 +294,7 @@ export default function BookingsPage() {
         );
 
         // Update lastBookingCount
-        setLastBookingCount((prev) => {
-          console.log("Updating lastBookingCount from", prev, "to", prev + 1);
-          return prev + 1;
-        });
+        setLastBookingCount((prev) => prev + 1);
       } else {
         console.log("Booking already exists, skipping notification");
       }
@@ -448,18 +308,20 @@ export default function BookingsPage() {
 
   // Polling untuk cek booking baru (fallback jika realtime tidak berfungsi)
   useEffect(() => {
+    let isMounted = true;
+
     const checkNewBookings = async () => {
       try {
         const currentBookings = await getBookings();
         if (currentBookings.length > lastBookingCount) {
           const newBookingsCount = currentBookings.length - lastBookingCount;
-          if (newBookingsCount > 0) {
+          if (newBookingsCount > 0 && isMounted) {
             // Ambil booking terbaru
             const latestBookings = currentBookings.slice(0, newBookingsCount);
 
             latestBookings.forEach((newBooking) => {
               const isNew = !bookings.some((b) => b.id === newBooking.id);
-              if (isNew) {
+              if (isNew && isMounted) {
                 const customer = customers.find(
                   (c) => c.id === newBooking.user_id,
                 );
@@ -481,10 +343,14 @@ export default function BookingsPage() {
               }
             });
 
-            setBookings(currentBookings);
+            if (isMounted) {
+              setBookings(currentBookings);
+            }
           }
         }
-        setLastBookingCount(currentBookings.length);
+        if (isMounted) {
+          setLastBookingCount(currentBookings.length);
+        }
       } catch (error) {
         console.error("Error checking new bookings:", error);
       }
@@ -493,7 +359,10 @@ export default function BookingsPage() {
     // Cek setiap 30 detik sebagai fallback
     const interval = setInterval(checkNewBookings, 30000);
 
-    return () => clearInterval(interval);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [lastBookingCount, bookings, customers, barbers, showNotification]);
 
   // Fetch data
@@ -1074,27 +943,6 @@ export default function BookingsPage() {
     setUnreadCount(0);
   };
 
-  // Toggle sound
-  const toggleSound = () => {
-    setSoundEnabled((prev) => !prev);
-
-    // Test sound jika dihidupkan
-    if (!soundEnabled) {
-      setTimeout(() => {
-        playNotificationSound();
-      }, 100);
-    }
-
-    toast.success(
-      soundEnabled
-        ? "🔇 Suara notifikasi dimatikan"
-        : "🔊 Suara notifikasi dihidupkan",
-      {
-        duration: 2000,
-      },
-    );
-  };
-
   // Filter bookings
   const filterBookings = () => {
     let filtered = [...bookings];
@@ -1246,24 +1094,6 @@ export default function BookingsPage() {
 
         {/* Notifikasi Bell */}
         <div className="flex items-center gap-2">
-          {/* Tombol Sound */}
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={toggleSound}
-            className={cn(
-              "relative border-zinc-700 bg-zinc-800/50 hover:bg-zinc-700/50",
-              soundEnabled ? "text-white" : "text-zinc-500",
-            )}
-            title={soundEnabled ? "Matikan suara" : "Hidupkan suara"}
-          >
-            {soundEnabled ? (
-              <Volume2 className="h-4 w-4" />
-            ) : (
-              <VolumeX className="h-4 w-4" />
-            )}
-          </Button>
-
           {/* Tombol Notifikasi */}
           <Popover open={showNotifications} onOpenChange={setShowNotifications}>
             <PopoverTrigger asChild>
