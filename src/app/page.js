@@ -231,8 +231,7 @@ export default function Home() {
             </h1>
 
             <p className="text-xl text-zinc-300 mb-8">
-              Lebih dari sekadar potong rambut. Nikmati layanan grooming premium
-              dengan sentuhan profesional
+              Nikmati Layanan Grooming Premium Dengan Sentuhan Profesional
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
