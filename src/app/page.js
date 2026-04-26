@@ -494,7 +494,7 @@ export default function Home() {
               <ul className="space-y-2 text-zinc-400 text-sm">
                 <li className="flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-amber-500" />
-                  Jl. Gunung galunggung No.19, Kota Cirebon
+                  Kota Cirebon, Jawa Barat
                 </li>
                 <li className="flex items-center gap-2">
                   <Phone className="h-4 w-4 text-amber-500" />
