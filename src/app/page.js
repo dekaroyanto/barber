@@ -142,7 +142,7 @@ export default function Home() {
             <div className="flex items-center space-x-2">
               <Scissors className="h-6 w-6 text-amber-500" />
               <span className="text-xl font-bold text-white">
-                <span className="text-amber-500">FADE</span> BARBERSHOP
+                <span className="text-amber-500">DEMO</span> BARBERSHOP
               </span>
             </div>
             <div className="hidden md:flex items-center space-x-8">
@@ -226,7 +226,7 @@ export default function Home() {
 
             <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight">
               <span className="bg-linear-to-r from-amber-500 via-amber-400 to-amber-500 bg-clip-text text-transparent">
-                FADE BARBERSHOP
+                DEMO BARBERSHOP
               </span>
             </h1>
 
@@ -471,7 +471,7 @@ export default function Home() {
               <div className="flex items-center space-x-2 mb-4">
                 <Scissors className="h-6 w-6 text-amber-500" />
                 <span className="text-xl font-bold text-white">
-                  <span className="text-amber-500">FADE</span> BARBERSHOP
+                  <span className="text-amber-500">DEMO</span> BARBERSHOP
                 </span>
               </div>
               <p className="text-zinc-400 text-sm">
@@ -502,7 +502,7 @@ export default function Home() {
                 </li>
                 <li className="flex items-center gap-2">
                   <Mail className="h-4 w-4 text-amber-500" />
-                  info@fadebarbershop.com
+                  info@demobarbershop.com
                 </li>
               </ul>
             </div>
@@ -533,7 +533,7 @@ export default function Home() {
           </div>
 
           <div className="border-t border-zinc-800 mt-8 pt-8 text-center text-zinc-500 text-sm">
-            <p>&copy; 2024 FADE Barbershop. All rights reserved.</p>
+            <p>&copy; 2026 DEMO Barbershop. All rights reserved.</p>
           </div>
         </div>
       </footer>
